@@ -42,16 +42,18 @@ void TableModelRequests::requestsChanged(const OkjsRequests &requests) {
         QString title = request.title;
         int reqtime = request.time;
         int key = request.key;
-        m_requests << Request(index, singer, artist, title, reqtime, key);
+        m_requests << Request(index, singer, artist, title, reqtime, key, request.songId, request.micCount);
     }
     emit layoutChanged();
 }
 
 int TableModelRequests::rowCount(const QModelIndex &parent) const {
+    Q_UNUSED(parent)
     return m_requests.size();
 }
 
 int TableModelRequests::columnCount(const QModelIndex &parent) const {
+    Q_UNUSED(parent)
     return 6;
 }
 
@@ -77,8 +79,11 @@ QVariant TableModelRequests::data(const QModelIndex &index, int role) const {
         }
     if (role == Qt::DisplayRole || role == Qt::ToolTipRole) {
         switch (index.column()) {
-            case SINGER:
-                return m_requests.at(index.row()).singer();
+            case SINGER: {
+                const auto &req = m_requests.at(index.row());
+                QString micTag = (req.micCount() == 2) ? " [🎤×2]" : " [🎤×1]";
+                return req.singer() + micTag;
+            }
             case ARTIST:
                 return m_requests.at(index.row()).artist();
             case TITLE:
@@ -122,6 +127,7 @@ QVariant TableModelRequests::headerData(int section, Qt::Orientation orientation
 }
 
 Qt::ItemFlags TableModelRequests::flags(const QModelIndex &index) const {
+    Q_UNUSED(index)
     return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
 }
 
@@ -133,13 +139,15 @@ int Request::key() const {
     return m_key;
 }
 
-Request::Request(int RequestId, const QString &Singer, const QString &Artist, const QString &Title, int ts, int key) {
+Request::Request(int RequestId, const QString &Singer, const QString &Artist, const QString &Title, int ts, int key, int songId, int micCount) {
     m_requestId = RequestId;
     m_singer = Singer;
     m_artist = Artist;
     m_title = Title;
     m_timeStamp = ts;
     m_key = key;
+    m_songId = songId;
+    m_micCount = micCount;
 }
 
 int Request::requestId() const {
@@ -173,7 +181,3 @@ QString Request::singer() const {
 void Request::setSinger(const QString &singer) {
     m_singer = singer;
 }
-
-
-
-

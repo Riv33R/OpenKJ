@@ -42,6 +42,8 @@ private:
     double m_phase{0.0};
     QString m_nowPlayingArtist;
     QString m_nowPlayingTitle;
+    QString m_requestQrUrl;
+    QPixmap m_requestQrPixmap;
     QSvgRenderer m_logoRenderer;
 
     void initVisualizerState();
@@ -62,6 +64,7 @@ public slots:
     void setVisualizerActive(bool active);
     void setAudioSpectrum(const QVector<double> &bands, double rmsLevel);
     void setNowPlayingTrack(const QString &artist, const QString &title);
+    void setRequestQrUrl(const QString &url);
 
     /**
      * @brief Fill with black on paint event when video is playing.

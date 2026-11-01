@@ -1,4 +1,5 @@
 #include "videodisplay.h"
+#include "qrcodegen.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QPaintEvent>
@@ -134,6 +135,22 @@ void VideoDisplay::setNowPlayingTrack(const QString &artist, const QString &titl
 {
     m_nowPlayingArtist = artist.trimmed();
     m_nowPlayingTitle = title.trimmed();
+    update();
+}
+
+void VideoDisplay::setRequestQrUrl(const QString &url)
+{
+    if (m_requestQrUrl == url)
+        return;
+    m_requestQrUrl = url.trimmed();
+    if (m_requestQrUrl.isEmpty())
+    {
+        m_requestQrPixmap = QPixmap();
+    }
+    else
+    {
+        m_requestQrPixmap = okj::qr::generateQrCodePixmap(m_requestQrUrl, 240, 2);
+    }
     update();
 }
 
@@ -416,6 +433,48 @@ void VideoDisplay::paintVisualizer(QPainter &painter, const QRect &rect)
     // Subtle glowing horizon line at baseline
     painter.setPen(QPen(QColor(56, 189, 248, 95), 1.2));
     painter.drawLine(QPointF(marginX, baselineY + 1.0), QPointF(w - marginX, baselineY + 1.0));
+
+    // 6. QR Code Card for Smartphone Song Requests (in top-right corner)
+    if (!m_requestQrPixmap.isNull() && w >= 420 && h >= 260)
+    {
+        double qrBoxSize = std::clamp(minDim * 0.22, 76.0, 175.0);
+        double pad = std::max(8.0, qrBoxSize * 0.10);
+        double textH = std::max(32.0, qrBoxSize * 0.34);
+        double cardW = qrBoxSize + pad * 2.0;
+        double cardH = qrBoxSize + pad * 2.0 + textH;
+        double cardX = w - cardW - std::max(14.0, w * 0.028);
+        double cardY = std::max(14.0, h * 0.035);
+
+        QRectF qrCardRect(cardX, cardY, cardW, cardH);
+        QPainterPath qrCardPath;
+        qrCardPath.addRoundedRect(qrCardRect, 14.0, 14.0);
+
+        painter.setPen(QPen(QColor(6, 182, 212, 165), 1.4));
+        painter.setBrush(QColor(11, 16, 33, 215));
+        painter.drawPath(qrCardPath);
+
+        QRectF qrImgRect(cardX + pad, cardY + pad, qrBoxSize, qrBoxSize);
+        painter.drawPixmap(qrImgRect.toRect(), m_requestQrPixmap);
+
+        QFont qrFont = painter.font();
+        qrFont.setPointSize(std::clamp(static_cast<int>(qrBoxSize * 0.095), 7, 13));
+        qrFont.setBold(true);
+        painter.setFont(qrFont);
+        painter.setPen(QColor(248, 250, 252));
+
+        QRectF lblTop(cardX + 4.0, cardY + pad + qrBoxSize + 2.0, cardW - 8.0, textH * 0.52);
+        painter.drawText(lblTop, Qt::AlignHCenter | Qt::AlignVCenter, tr("📱 Заказ песни"));
+
+        QString shortUrl = m_requestQrUrl;
+        shortUrl.remove("http://");
+        shortUrl.remove("https://");
+        qrFont.setPointSize(std::clamp(static_cast<int>(qrBoxSize * 0.082), 6, 11));
+        qrFont.setBold(false);
+        painter.setFont(qrFont);
+        painter.setPen(QColor(125, 211, 252));
+        QRectF lblBot(cardX + 4.0, cardY + pad + qrBoxSize + textH * 0.48, cardW - 8.0, textH * 0.50);
+        painter.drawText(lblBot, Qt::AlignHCenter | Qt::AlignVCenter, shortUrl);
+    }
 }
 
 void VideoDisplay::paintEvent(QPaintEvent *event)

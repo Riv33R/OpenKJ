@@ -41,9 +41,11 @@ private:
     QString m_title;
     QString m_singer;
     int m_key;
+    int m_songId{-1};
+    int m_micCount{1};
 
 public:
-    Request(int RequestId, const QString &Singer, const QString &Artist, const QString &Title, int ts, int key = 0);
+    Request(int RequestId, const QString &Singer, const QString &Artist, const QString &Title, int ts, int key = 0, int songId = -1, int micCount = 1);
     [[nodiscard]] int requestId() const;
     [[nodiscard]] int timeStamp() const;
     [[nodiscard]] QString artist() const;
@@ -53,6 +55,8 @@ public:
     [[nodiscard]] QString singer() const;
     void setSinger(const QString &singer);
     [[nodiscard]] int key() const;
+    [[nodiscard]] int songId() const { return m_songId; }
+    [[nodiscard]] int micCount() const { return m_micCount; }
 };
 
 class TableModelRequests : public QAbstractTableModel

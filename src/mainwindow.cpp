@@ -785,7 +785,7 @@ void MainWindow::loadSettings() {
         m_mediaBackendKar.setEqLevel(band, m_settings.getEqKLevel(band));
         m_mediaBackendBm.setEqLevel(band, m_settings.getEqBLevel(band));
     }
-    ui->pushButtonIncomingRequests->setVisible(m_settings.requestServerEnabled());
+    ui->pushButtonIncomingRequests->setVisible(m_settings.requestServerEnabled() || m_songbookApi.isLocalServerRunning());
     ui->btnToggleCdgWindow->setChecked(m_settings.showCdgWindow());
     ui->groupBoxNowPlaying->setVisible(m_settings.showMainWindowNowPlaying());
     ui->groupBoxSoundClips->setVisible(m_settings.showMainWindowSoundClips());
@@ -1022,6 +1022,16 @@ void MainWindow::setupConnections() {
     connect(ui->actionSettings, &QAction::triggered, this, &MainWindow::actionSettingsTriggered);
     connect(ui->actionRegulars, &QAction::triggered, &m_dlgRegularSingers, &DlgRegularSingers::showNormal);
     connect(ui->actionIncoming_Requests, &QAction::triggered, requestsDialog.get(), &DlgRequests::show);
+    connect(&m_songbookApi, &OKJSongbookAPI::localRequestSubmitted, this, [this](const OkjsRequest &req) {
+        ui->pushButtonIncomingRequests->setVisible(true);
+        QApplication::beep();
+        ui->statusBar->showMessage(
+                QString("📱 Новый заказ по QR от %1 (%2 микр.): %3 — %4")
+                        .arg(req.singer)
+                        .arg(req.micCount)
+                        .arg(req.artist, req.title),
+                12000);
+    });
     connect(ui->pushButton, &QPushButton::clicked, this, &MainWindow::search);
     connect(ui->buttonClearRotation, &QPushButton::clicked, this, &MainWindow::clearRotation);
     connect(ui->buttonClearQueue, &QPushButton::clicked, this, &MainWindow::clearSingerQueue);
@@ -2199,6 +2209,21 @@ void MainWindow::rotationDataChanged() {
         }
     }
     cdgWindow->setTickerText(tickerText);
+
+    {
+        QString curStageSinger = (m_rotModel.currentSinger() >= 0) ? m_rotModel.getSinger(m_rotModel.currentSinger()).name : QString();
+        QString curStageSong;
+        if (ui->labelArtist->text() != tr("None") || ui->labelTitle->text() != tr("None")) {
+            curStageSong = ui->labelArtist->text() + " — " + ui->labelTitle->text();
+        }
+        QStringList upcomingList;
+        for (int i = 0; i < m_rotModel.singerCount(); ++i) {
+            auto s = m_rotModel.getSingerAtPosition(i);
+            if (!s.name.isEmpty())
+                upcomingList.append(s.name);
+        }
+        m_songbookApi.setStageStatus(curStageSinger, curStageSong, upcomingList);
+    }
 
     m_logger->trace("{} [{}] finished in {}ms",
                     m_loggingPrefix,
@@ -4547,11 +4572,14 @@ void MainWindow::updateBreakMusicVisualizer() {
             }
         }
     }
+    const QString qrUrl = m_songbookApi.isLocalServerRunning() ? m_songbookApi.localServerUrl() : QString();
     if (cdgWindow && cdgWindow->getVideoDisplay()) {
+        cdgWindow->getVideoDisplay()->setRequestQrUrl(qrUrl);
         cdgWindow->getVideoDisplay()->setNowPlayingTrack(artist, title);
         cdgWindow->getVideoDisplay()->setVisualizerActive(showVis);
     }
     if (ui && ui->videoPreview) {
+        ui->videoPreview->setRequestQrUrl(qrUrl);
         ui->videoPreview->setNowPlayingTrack(artist, title);
         ui->videoPreview->setVisualizerActive(showVis);
     }

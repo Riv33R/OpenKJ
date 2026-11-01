@@ -23,6 +23,9 @@
 
 #include <QDialog>
 #include <QItemSelection>
+#include <QLabel>
+#include <QCheckBox>
+#include <QPushButton>
 #include "src/models/tablemodelrequests.h"
 #include "src/models/tablemodelkaraokesongs.h"
 #include "src/models/tablemodelrotation.h"
@@ -41,7 +44,6 @@ class DlgRequests : public QDialog
 private:
     Ui::DlgRequests *ui;
     TableModelRequests *requestsModel;
-    //SongDBTableModel *songDbModel;
     TableModelKaraokeSongs dbModel;
     TableModelRotation &rotModel;
     QString rtClickFile;
@@ -53,9 +55,19 @@ private:
     OKJSongbookAPI &songbookApi;
     Settings m_settings;
 
+    QLabel *m_lblQrInfo{nullptr};
+    QLabel *m_lblMicHint{nullptr};
+    QCheckBox *m_cbxAutoAccept{nullptr};
+    QPushButton *m_btnShowQr{nullptr};
+
+    void setupLocalQrBar();
+    void updateMicHintLabel();
+    void autoAcceptLocalRequest(const OkjsRequest &req);
+
 public:
     explicit DlgRequests(TableModelRotation &rotationModel, OKJSongbookAPI &songbookAPI, QWidget *parent = nullptr);
     int numRequests();
+    void showQrCodeDialog();
     ~DlgRequests();
 
 signals:
@@ -94,22 +106,13 @@ private slots:
     void lineEditSearchEscapePressed();
     void autoSizeViews();
 
-    // QWidget interface
     void on_spinBoxKey_valueChanged(int arg1);
-
     void on_pushButtonWebSearch_clicked();
-
     void on_pushButtonRunTortureTest_clicked();
 
 protected:
     void resizeEvent(QResizeEvent *event);
-
-    // QWidget interface
-protected:
     void showEvent(QShowEvent *event);
-
-    // QWidget interface
-protected:
     void closeEvent(QCloseEvent *event);
 };
 

@@ -3,9 +3,12 @@
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QObject>
 #include <QUrl>
 #include <QTimer>
+#include <QStringList>
 #include "settings.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/async_logger.h>
@@ -17,12 +20,14 @@ std::ostream& operator<<(std::ostream& os, const QString& s);
 class OkjsRequest
 {
 public:
-    int requestId;
+    int requestId{0};
     QString singer;
     QString artist;
     QString title;
-    int key;
-    int time;
+    int key{0};
+    int time{0};
+    int songId{-1};
+    int micCount{1};
     bool operator == (const OkjsRequest& r) const;
 };
 
@@ -32,10 +37,10 @@ typedef QList<OkjsRequest> OkjsRequests;
 class OkjsVenue
 {
 public:
-    int venueId;
+    int venueId{0};
     QString name;
     QString urlName;
-    bool accepting;
+    bool accepting{true};
     bool operator == (const OkjsVenue& v) const;
 };
 
@@ -65,6 +70,21 @@ private:
     bool updateInProgress;
     Settings m_settings;
 
+    QTcpServer *m_httpServer{nullptr};
+    quint16 m_httpPort{8080};
+    bool m_localAccepting{true};
+    int m_nextLocalRequestId{1};
+    QString m_currentStageSinger;
+    QString m_currentStageSong;
+    QStringList m_upcomingSingers;
+
+    void startLocalHttpServer();
+    void handleHttpConnection();
+    void processHttpRequest(QTcpSocket *socket, const QByteArray &rawRequest);
+    void sendHttpResponse(QTcpSocket *socket, int statusCode, const QByteArray &statusText,
+                          const QByteArray &contentType, const QByteArray &body);
+    QByteArray buildMobileWebAppHtml() const;
+
 public:
     explicit OKJSongbookAPI(QObject *parent = nullptr);
     void getSerial();
@@ -82,6 +102,12 @@ public:
     [[nodiscard]] bool updateWasCancelled() const {return cancelUpdate; }
     void triggerTestAdd();
 
+    [[nodiscard]] QString localServerUrl() const;
+    [[nodiscard]] quint16 localServerPort() const { return m_httpPort; }
+    [[nodiscard]] bool isLocalServerRunning() const { return m_httpServer && m_httpServer->isListening(); }
+    void setStageStatus(const QString &currentSinger, const QString &currentSong, const QStringList &upcomingSingers);
+    [[nodiscard]] const OkjsRequests &currentRequests() const { return requests; }
+
 signals:
     void venuesChanged(OkjsVenues);
     void sslError();
@@ -90,6 +116,7 @@ signals:
     void remoteSongDbUpdateDone();
     void remoteSongDbUpdateStart();
     void requestsChanged(OkjsRequests);
+    void localRequestSubmitted(OkjsRequest);
     void synchronized(QTime);
     void delayError(int);
     void testPassed();
