@@ -896,6 +896,12 @@ void MainWindow::setupConnections() {
     connect(&m_mediaBackendBm, &MediaBackend::positionChanged, this, &MainWindow::bmMediaPositionChanged);
     connect(&m_mediaBackendBm, &MediaBackend::durationChanged, this, &MainWindow::bmMediaDurationChanged);
     connect(&m_mediaBackendBm, &MediaBackend::volumeChanged, ui->sliderBmVolume, &QSlider::setValue);
+    connect(&m_mediaBackendBm, &MediaBackend::audioSpectrumChanged, this, [this](const QVector<double> &bands, double rms) {
+        if (cdgWindow && cdgWindow->getVideoDisplay())
+            cdgWindow->getVideoDisplay()->setAudioSpectrum(bands, rms);
+        if (ui && ui->videoPreview)
+            ui->videoPreview->setAudioSpectrum(bands, rms);
+    });
     connect(bmDbDialog.get(), &BmDbDialog::bmDbUpdated, this, &MainWindow::bmDbUpdated);
     connect(bmDbDialog.get(), &BmDbDialog::bmDbCleared, this, &MainWindow::bmDbCleared);
     connect(bmDbDialog.get(), &BmDbDialog::bmDbAboutToUpdate, this, &MainWindow::bmDatabaseAboutToUpdate);
@@ -2013,6 +2019,7 @@ void MainWindow::karaokeMediaBackend_stateChanged(const MediaBackend::State &sta
     if (state == MediaBackend::UnknownState) {
         m_logger->info("{} KAudio entered UnknownState", m_loggingPrefix);
     }
+    updateBreakMusicVisualizer();
     rotationDataChanged();
 }
 
@@ -2038,6 +2045,7 @@ void MainWindow::hasActiveVideoChanged() {
     ui->videoPreviewBm->setHasActiveVideo(m_bmHasActiveVideo);
     cdgWindow->getVideoDisplay()->setHasActiveVideo(m_kHasActiveVideo);
     cdgWindow->getVideoDisplayBm()->setHasActiveVideo(m_bmHasActiveVideo);
+    updateBreakMusicVisualizer();
     if (m_timerKaraokeAA.isActive() && m_settings.karaokeAAAlertEnabled())
         return;
     if (m_bmHasActiveVideo && !m_kHasActiveVideo) {
@@ -2718,6 +2726,7 @@ void MainWindow::bmMediaStateChanged(const MediaBackend::State &newState) {
                 ui->checkBoxBmBreak->setChecked(false);
                 m_mediaBackendBm.stop(true);
                 resetBmLabels();
+                updateBreakMusicVisualizer();
                 return;
             }
             auto plSong = m_tableModelPlaylistSongs.getNextPlSong();
@@ -2753,6 +2762,7 @@ void MainWindow::bmMediaStateChanged(const MediaBackend::State &newState) {
             resetBmLabels();
             break;
     }
+    updateBreakMusicVisualizer();
 }
 
 void MainWindow::bmMediaPositionChanged(const qint64 &position) {
@@ -2847,6 +2857,7 @@ void MainWindow::tableViewBmPlaylistDoubleClicked(const QModelIndex &index) {
     m_mediaBackendBm.play();
     if (m_mediaBackendKar.state() != MediaBackend::PlayingState)
         m_mediaBackendBm.fadeInImmediate();
+    updateBreakMusicVisualizer();
 }
 
 void MainWindow::buttonBmPauseClicked(const bool &checked) {
@@ -4339,12 +4350,14 @@ void MainWindow::resetBmLabels() {
 void MainWindow::resumeOrStartBreakMusic() {
     if (m_mediaBackendBm.state() == MediaBackend::PlayingState) {
         m_mediaBackendBm.fadeIn(false);
+        updateBreakMusicVisualizer();
         return;
     }
     if (m_mediaBackendBm.state() == MediaBackend::PausedState) {
         ui->buttonBmPause->setChecked(false);
         m_mediaBackendBm.play();
         m_mediaBackendBm.fadeIn(false);
+        updateBreakMusicVisualizer();
         return;
     }
     if (m_tableModelPlaylistSongs.rowCount() == 0 && m_tableModelBreakSongs.rowCount() > 0) {
@@ -4358,6 +4371,7 @@ void MainWindow::resumeOrStartBreakMusic() {
     int count = m_tableModelPlaylistSongs.rowCount();
     if (count <= 0) {
         m_mediaBackendBm.fadeIn(false);
+        updateBreakMusicVisualizer();
         return;
     }
     int startPos = 0;
@@ -4374,8 +4388,40 @@ void MainWindow::resumeOrStartBreakMusic() {
             m_mediaBackendBm.play();
             m_mediaBackendBm.setVolume(ui->sliderBmVolume->value());
             m_mediaBackendBm.fadeIn(false);
+            updateBreakMusicVisualizer();
             return;
         }
+    }
+}
+
+void MainWindow::updateBreakMusicVisualizer() {
+    if (m_shuttingDown)
+        return;
+    bool bmPlaying = (m_mediaBackendBm.state() == MediaBackend::PlayingState);
+    bool karActive = (m_mediaBackendKar.state() == MediaBackend::PlayingState ||
+                      m_mediaBackendKar.state() == MediaBackend::PausedState ||
+                      m_kHasActiveVideo);
+    bool showVis = bmPlaying && !karActive && !m_bmHasActiveVideo;
+
+    QString artist;
+    QString title;
+    if (bmPlaying) {
+        auto plSong = m_tableModelPlaylistSongs.getCurrentSong();
+        if (plSong.has_value()) {
+            artist = plSong->get().artist.trimmed();
+            title = plSong->get().title.trimmed();
+            if (artist.isEmpty() && title.isEmpty()) {
+                title = QFileInfo(plSong->get().path).completeBaseName();
+            }
+        }
+    }
+    if (cdgWindow && cdgWindow->getVideoDisplay()) {
+        cdgWindow->getVideoDisplay()->setNowPlayingTrack(artist, title);
+        cdgWindow->getVideoDisplay()->setVisualizerActive(showVis);
+    }
+    if (ui && ui->videoPreview) {
+        ui->videoPreview->setNowPlayingTrack(artist, title);
+        ui->videoPreview->setVisualizerActive(showVis);
     }
 }
 

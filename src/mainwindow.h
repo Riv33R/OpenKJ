@@ -167,6 +167,7 @@ private:
     void loadSettings();
     void resetBmLabels();
     void resumeOrStartBreakMusic();
+    void updateBreakMusicVisualizer();
     void play(const QString &karaokeFilePath, const bool &k2k = false);
     void bmAddPlaylist(const QString& title);
     bool bmPlaylistExists(const QString& name);

@@ -679,7 +679,8 @@ void MediaBackend::gstBusFunc(GstMessage *message)
         case GST_MESSAGE_ELEMENT:
         {
             auto msgStructure = gst_message_get_structure(message);
-            if (std::string(gst_structure_get_name(msgStructure)) == "level")
+            std::string structName(gst_structure_get_name(msgStructure));
+            if (structName == "level")
             {
                 auto array_val = gst_structure_get_value(msgStructure, "rms");
                 auto rms_arr = reinterpret_cast<GValueArray*>(g_value_get_boxed (array_val));
@@ -692,6 +693,77 @@ void MediaBackend::gstBusFunc(GstMessage *message)
                     rmsValues += rms;
                 }
                 m_currentRmsLevel = rmsValues / rms_arr->n_values;
+                if (!m_spectrum && m_type == BackgroundMusic)
+                {
+                    gdouble faderVol = 1.0;
+                    if (m_faderVolumeElement)
+                        g_object_get(G_OBJECT(m_faderVolumeElement), "volume", &faderVol, nullptr);
+                    double effRms = std::clamp(m_currentRmsLevel * faderVol * 2.2, 0.0, 1.0);
+                    m_spectrumBands.resize(32);
+                    for (int b = 0; b < 32; ++b)
+                    {
+                        double wave = 0.55 + 0.45 * std::sin(b * 0.45 + m_lastPosition * 0.015);
+                        m_spectrumBands[b] = std::clamp(effRms * wave, 0.0, 1.0);
+                    }
+                    emit audioSpectrumChanged(m_spectrumBands, effRms);
+                }
+            }
+            else if (structName == "spectrum")
+            {
+                const GValue *magnitudes = gst_structure_get_value(msgStructure, "magnitude");
+                QVector<double> rawBins;
+                if (magnitudes && GST_VALUE_HOLDS_LIST(magnitudes))
+                {
+                    guint size = gst_value_list_get_size(magnitudes);
+                    rawBins.reserve(static_cast<int>(size));
+                    for (guint i = 0; i < size; ++i)
+                    {
+                        const GValue *val = gst_value_list_get_value(magnitudes, i);
+                        float db = g_value_get_float(val);
+                        double norm = std::clamp((static_cast<double>(db) + 72.0) / 64.0, 0.0, 1.0);
+                        rawBins.push_back(norm);
+                    }
+                }
+                else if (magnitudes && G_VALUE_HOLDS_BOXED(magnitudes))
+                {
+                    auto arr = reinterpret_cast<GValueArray*>(g_value_get_boxed(magnitudes));
+                    if (arr)
+                    {
+                        rawBins.reserve(static_cast<int>(arr->n_values));
+                        for (unsigned int i = 0; i < arr->n_values; ++i)
+                        {
+                            auto val = g_value_array_get_nth(arr, i);
+                            float db = g_value_get_float(val);
+                            double norm = std::clamp((static_cast<double>(db) + 72.0) / 64.0, 0.0, 1.0);
+                            rawBins.push_back(norm);
+                        }
+                    }
+                }
+                if (!rawBins.isEmpty())
+                {
+                    const int numBars = 32;
+                    m_spectrumBands.resize(numBars);
+                    int n = rawBins.size();
+                    double energySum = 0.0;
+                    for (int b = 0; b < numBars; ++b)
+                    {
+                        double t0 = std::pow(static_cast<double>(b) / numBars, 1.55);
+                        double t1 = std::pow(static_cast<double>(b + 1) / numBars, 1.55);
+                        int idx0 = std::clamp(static_cast<int>(t0 * (n * 0.75)), 0, n - 1);
+                        int idx1 = std::clamp(static_cast<int>(t1 * (n * 0.75)), idx0 + 1, n);
+                        double maxVal = 0.0;
+                        for (int k = idx0; k < idx1; ++k)
+                        {
+                            maxVal = std::max(maxVal, rawBins[k]);
+                        }
+                        double trebleBoost = 1.0 + 0.018 * b;
+                        double val = std::clamp(std::pow(maxVal, 1.25) * trebleBoost, 0.0, 1.0);
+                        m_spectrumBands[b] = val;
+                        energySum += val;
+                    }
+                    double avgEnergy = std::clamp((energySum / numBars) * 1.35, 0.0, 1.0);
+                    emit audioSpectrumChanged(m_spectrumBands, avgEnergy);
+                }
             }
             break;
         }
@@ -913,8 +985,23 @@ void MediaBackend::buildAudioSinkBin()
         }
     }
 
-    gst_bin_add_many(GST_BIN(m_audioBin), m_aConvEnd, queueEndAudio, m_audioSink, nullptr);
-    gst_element_link_many(audioBinLastElement, queueEndAudio, m_volumeElement, m_faderVolumeElement, m_aConvEnd, m_audioSink, nullptr);
+    m_spectrum = gst_element_factory_make("spectrum", "spectrum");
+    if (m_spectrum)
+    {
+        g_object_set(m_spectrum,
+                     "bands", 64,
+                     "threshold", -80,
+                     "interval", static_cast<guint64>(33 * GST_MSECOND),
+                     "post-messages", (m_type == BackgroundMusic) ? TRUE : FALSE,
+                     nullptr);
+        gst_bin_add_many(GST_BIN(m_audioBin), m_spectrum, m_aConvEnd, queueEndAudio, m_audioSink, nullptr);
+        gst_element_link_many(audioBinLastElement, queueEndAudio, m_volumeElement, m_faderVolumeElement, m_spectrum, m_aConvEnd, m_audioSink, nullptr);
+    }
+    else
+    {
+        gst_bin_add_many(GST_BIN(m_audioBin), m_aConvEnd, queueEndAudio, m_audioSink, nullptr);
+        gst_element_link_many(audioBinLastElement, queueEndAudio, m_volumeElement, m_faderVolumeElement, m_aConvEnd, m_audioSink, nullptr);
+    }
 
     auto csource = gst_interpolation_control_source_new ();
     GstControlBinding *cbind = gst_direct_control_binding_new (GST_OBJECT_CAST(m_faderVolumeElement), "volume", csource);
@@ -929,7 +1016,7 @@ void MediaBackend::buildAudioSinkBin()
     gst_object_unref(pad);
 
     g_object_set(rgVolume, "album-mode", false, nullptr);
-    g_object_set(level, "message", TRUE, nullptr);
+    g_object_set(level, "message", TRUE, "interval", static_cast<guint64>(40 * GST_MSECOND), nullptr);
     setVolume(m_volume);
     m_timerSlow.start(1000);
     setAudioOutputDevice(m_outputDevice);

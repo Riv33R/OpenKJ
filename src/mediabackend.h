@@ -35,6 +35,7 @@
 #include <QThread>
 #include <QMutex>
 #include <QImage>
+#include <QVector>
 #include "audiofader.h"
 #include "softwarerendervideosink.h"
 #include <QPointer>
@@ -163,6 +164,7 @@ private:
     GstElement *m_pitchShifterSoundtouch { nullptr };
     GstElement *m_volumeElement { nullptr };
     GstElement *m_faderVolumeElement { nullptr };
+    GstElement *m_spectrum { nullptr };
     GstElement *m_equalizer { nullptr };
     GstElement *m_audioSink { nullptr };
     GstElement *m_prescalerCapsFilter { nullptr };
@@ -203,6 +205,7 @@ private:
     int m_lastPosition{0};
     AudioOutputDevice m_outputDevice;
     double m_currentRmsLevel{0.0};
+    QVector<double> m_spectrumBands;
     bool m_cdgMode{false};
     bool m_fade{false};
     bool m_currentlyFadedOut{false};
@@ -275,6 +278,7 @@ signals:
     void silenceDetected();
     void pitchChanged(const int key);
     void audioError(const QString &msg);
+    void audioSpectrumChanged(const QVector<double> &bands, double rmsLevel);
 
 };
 
