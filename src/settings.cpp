@@ -1392,6 +1392,36 @@ void Settings::bmSetPlaylistIndex(int index)
     settings->setValue("playlistIndex", index);
 }
 
+int Settings::bmSongIndex()
+{
+    return settings->value("bmSongIndex", 0).toInt();
+}
+
+void Settings::bmSetSongIndex(int index)
+{
+    settings->setValue("bmSongIndex", index);
+}
+
+QString Settings::bmSongPath()
+{
+    return settings->value("bmSongPath", QString()).toString();
+}
+
+void Settings::bmSetSongPath(const QString &path)
+{
+    settings->setValue("bmSongPath", path);
+}
+
+qint64 Settings::bmPlaybackPositionMs()
+{
+    return settings->value("bmPlaybackPositionMs", 0).toLongLong();
+}
+
+void Settings::bmSetPlaybackPositionMs(qint64 posMs)
+{
+    settings->setValue("bmPlaybackPositionMs", posMs);
+}
+
 int Settings::mplxMode()
 {
     return settings->value("mplxMode", 0).toInt();

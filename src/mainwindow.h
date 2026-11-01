@@ -160,12 +160,16 @@ private:
     OKJSongbookAPI m_songbookApi;
     QWidget *m_historyTabWidget;
     std::mt19937_64 rng;
+    int m_bmSavedSongIndex{-1};
+    QString m_bmSavedSongPath;
+    qint64 m_bmSavedPositionMs{0};
 
     void updateIcons();
     void setupShortcuts();
     void setupConnections();
     void loadSettings();
     void resetBmLabels();
+    void saveBmPlaybackState();
     void resumeOrStartBreakMusic();
     void updateBreakMusicVisualizer();
     void play(const QString &karaokeFilePath, const bool &k2k = false);

@@ -209,6 +209,8 @@ private:
     bool m_cdgMode{false};
     bool m_fade{false};
     bool m_currentlyFadedOut{false};
+    bool m_pauseOnFadeOut{false};
+    qint64 m_pendingSeekPosMs{0};
     bool m_silenceDetect{false};
     bool m_videoEnabled{true};
     bool m_bypass{false};
@@ -254,7 +256,9 @@ public slots:
     void rawStop();
     void setPitchShift(const int &pitchShift);
     void fadeOut(const bool &waitForFade = true);
+    void fadeOutAndPause(bool waitForFade = true);
     void fadeIn(const bool &waitForFade = true);
+    void setInitialPosition(qint64 positionMs) { m_pendingSeekPosMs = positionMs; }
     void setUseFader(const bool &fade) {m_fade = fade;}
     void setUseSilenceDetection(const bool &enabled);
     void setDownmix(const bool &enabled);

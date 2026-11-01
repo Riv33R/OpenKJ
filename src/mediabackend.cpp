@@ -221,6 +221,7 @@ void MediaBackend::play()
 {
     m_logger->debug("{} Play called", m_loggingPrefix);
     m_videoOffsetMs = m_settings.videoOffsetMs();
+    m_pauseOnFadeOut = false;
 
     if (m_currentlyFadedOut)
     {
@@ -229,9 +230,13 @@ void MediaBackend::play()
     if (state() == MediaBackend::PausedState)
     {
         m_logger->debug("{} Play called with playback currently paused, unpausing", m_loggingPrefix);
+        m_currentState = GST_STATE_PLAYING;
         gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
+        emit stateChanged(MediaBackend::PlayingState);
         if (m_fade)
-            fadeIn();
+            fadeIn(false);
+        else
+            m_fader->immediateIn();
         return;
     }
 
@@ -305,6 +310,7 @@ void MediaBackend::resetPipeline()
     gst_element_set_state(m_pipeline, GST_STATE_NULL);
 
     m_hasVideo = false;
+    m_pauseOnFadeOut = false;
     m_lastPosition = 0;
     m_lastDuration = 0;
     m_positionWatchdogLastPos = 0;
@@ -408,7 +414,8 @@ bool MediaBackend::isMuted()
 
 void MediaBackend::setPosition(const qint64 &position)
 {
-    if (position > 1000 && position > duration() - 1000)
+    qint64 dur = duration();
+    if (dur > 1000 && position > 1000 && position > dur - 1000)
     {
         emit stateChanged(EndOfMediaState);
         return;
@@ -651,6 +658,18 @@ void MediaBackend::gstBusFunc(GstMessage *message)
                     {
                         m_lastDuration = dur;
                         emit durationChanged(dur);
+                    }
+                    if (m_pendingSeekPosMs > 0)
+                    {
+                        qint64 seekTo = m_pendingSeekPosMs;
+                        m_pendingSeekPosMs = 0;
+                        if (dur <= 0 || seekTo < dur - 1000)
+                        {
+                            m_logger->info("{} Seeking to saved position: {}ms", m_loggingPrefix, seekTo);
+                            gst_element_send_event(m_pipeline, gst_event_new_seek(m_playbackRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, seekTo * GST_MSECOND, GST_SEEK_TYPE_NONE, 0));
+                            m_lastPosition = static_cast<int>(seekTo);
+                            emit positionChanged(seekTo);
+                        }
                     }
                     emit stateChanged(MediaBackend::PlayingState);
                     if (m_currentlyFadedOut)
@@ -1031,8 +1050,17 @@ void MediaBackend::buildAudioSinkBin()
     connect(m_fader, &AudioFader::fadeComplete, [&] () {
         m_logger->debug("{} Fade operation completed", m_loggingPrefix);
     });
-    connect(m_fader, &AudioFader::faderStateChanged, [&] (auto state) {
-        m_logger->debug("{} Fader state changed to: {}", m_loggingPrefix, m_fader->stateToStr(state));
+    connect(m_fader, &AudioFader::faderStateChanged, [this] (auto faderState) {
+        m_logger->debug("{} Fader state changed to: {}", m_loggingPrefix, m_fader->stateToStr(faderState));
+        if (faderState == AudioFader::FadedOut && m_pauseOnFadeOut)
+        {
+            m_pauseOnFadeOut = false;
+            if (state() == PlayingState)
+            {
+                m_logger->info("{} Fade out complete, pausing pipeline", m_loggingPrefix);
+                gst_element_set_state(m_pipeline, GST_STATE_PAUSED);
+            }
+        }
     });
 }
 
@@ -1071,6 +1099,8 @@ void MediaBackend::stopPipeline()
     gst_element_set_state(m_pipeline, GST_STATE_NULL);
     m_currentState = GST_STATE_NULL;
     m_hasVideo = false;
+    m_pauseOnFadeOut = false;
+    m_pendingSeekPosMs = 0;
     m_lastPosition = 0;
     m_lastDuration = 0;
     m_positionWatchdogLastPos = 0;
@@ -1156,10 +1186,38 @@ void MediaBackend::fadeOut(const bool &waitForFade)
     m_fader->fadeOut(waitForFade);
 }
 
+void MediaBackend::fadeOutAndPause(bool waitForFade)
+{
+    m_logger->debug("{} Fade out and pause requested (waitForFade={})", m_loggingPrefix, waitForFade);
+    if (state() != PlayingState)
+    {
+        m_pauseOnFadeOut = false;
+        return;
+    }
+    if (!m_fade)
+    {
+        m_pauseOnFadeOut = false;
+        gst_element_set_state(m_pipeline, GST_STATE_PAUSED);
+        return;
+    }
+    if (waitForFade)
+    {
+        m_pauseOnFadeOut = false;
+        fadeOut(true);
+        gst_element_set_state(m_pipeline, GST_STATE_PAUSED);
+    }
+    else
+    {
+        m_pauseOnFadeOut = true;
+        fadeOut(false);
+    }
+}
+
 void MediaBackend::fadeIn(const bool &waitForFade)
 {
     m_logger->debug("{} Fade in requested", m_loggingPrefix);
     m_currentlyFadedOut = false;
+    m_pauseOnFadeOut = false;
     if (state() != PlayingState)
     {
         m_logger->debug("{} Media not currently playing, skipping fade and immediately setting volume", m_loggingPrefix);
@@ -1385,6 +1443,7 @@ void MediaBackend::setEqLevel(const int &band, const int &level)
 void MediaBackend::fadeInImmediate()
 {
     m_currentlyFadedOut = false;
+    m_pauseOnFadeOut = false;
     m_fader->immediateIn();
 }
 

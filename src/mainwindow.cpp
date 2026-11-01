@@ -816,6 +816,38 @@ void MainWindow::loadSettings() {
             break;
     }
     comboBoxBmPlaylistsIndexChanged(m_settings.bmPlaylistIndex());
+    m_bmSavedSongIndex = m_settings.bmSongIndex();
+    m_bmSavedSongPath = m_settings.bmSongPath();
+    m_bmSavedPositionMs = m_settings.bmPlaybackPositionMs();
+    if (m_tableModelPlaylistSongs.rowCount() > 0) {
+        int restoredPos = -1;
+        if (!m_bmSavedSongPath.isEmpty()) {
+            for (int i = 0; i < m_tableModelPlaylistSongs.rowCount(); ++i) {
+                auto candidate = m_tableModelPlaylistSongs.getPlSongByPosition(i);
+                if (candidate.has_value() && candidate->get().path == m_bmSavedSongPath) {
+                    restoredPos = i;
+                    break;
+                }
+            }
+        }
+        if (restoredPos < 0 && m_bmSavedSongIndex >= 0 && m_bmSavedSongIndex < m_tableModelPlaylistSongs.rowCount()) {
+            restoredPos = m_bmSavedSongIndex;
+            m_bmSavedPositionMs = 0;
+        }
+        if (restoredPos >= 0) {
+            m_tableModelPlaylistSongs.setCurrentPosition(restoredPos);
+            auto plSong = m_tableModelPlaylistSongs.getCurrentSong();
+            if (plSong.has_value()) {
+                m_bmSavedSongIndex = restoredPos;
+                m_bmSavedSongPath = plSong->get().path;
+                ui->labelBmPlaying->setText(plSong->get().artist + " - " + plSong->get().title);
+                ui->labelBmPosition->setText(QTime(0, 0, 0, 0).addMSecs((int) m_bmSavedPositionMs).toString("m:ss"));
+            }
+            auto nextPlSong = m_tableModelPlaylistSongs.getNextPlSong();
+            if (nextPlSong.has_value())
+                ui->labelBmNext->setText(nextPlSong->get().artist + " - " + nextPlSong->get().title);
+        }
+    }
     QTimer::singleShot(250, [&]() {
         m_settings.restoreWindowState(this);
         m_initialUiSetupDone = true;
@@ -823,22 +855,7 @@ void MainWindow::loadSettings() {
     });
     if (m_settings.bmAutoStart()) {
         QTimer::singleShot(1000, [&]() {
-            if (m_tableModelPlaylistSongs.rowCount() > 0)
-            {
-                m_tableModelPlaylistSongs.setCurrentPosition(0);
-                auto plSong = m_tableModelPlaylistSongs.getCurrentSong();
-                if (plSong.has_value()) {
-                    if (QFile::exists(plSong->get().path)) {
-                        m_mediaBackendBm.setMedia(plSong->get().path);
-                        m_mediaBackendBm.play();
-                        m_mediaBackendBm.setVolume(ui->sliderBmVolume->value());
-                    } else {
-                        QMessageBox::warning(this, tr("Break music autostart failure"),
-                                             tr("Break music is set to autostart but the first song in the current playlist was not found.\n\nAborting playback."),
-                                             QMessageBox::Ok);
-                    }
-                }
-            }
+            resumeOrStartBreakMusic();
         });
     }
     // Without this, QAction items aren't getting set properly on program startup.  Not sure why, but it must be
@@ -1321,8 +1338,10 @@ void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
                     m_logger->info("{} Setting karaoke backend source file to: {}", m_loggingPrefix,
                                    audioFile.toStdString());
                     m_mediaBackendKar.setMediaCdg(cdgFile, audioFile);
-                    if (!k2k)
-                        m_mediaBackendBm.fadeOut(!m_settings.bmKCrossFade());
+                    if (!k2k) {
+                        saveBmPlaybackState();
+                        m_mediaBackendBm.fadeOutAndPause(!m_settings.bmKCrossFade());
+                    }
                     m_logger->info("{} Beginning playback of file: {}", m_loggingPrefix, audioFile.toStdString());
                     QApplication::setOverrideCursor(Qt::WaitCursor);
                     m_mediaBackendKar.play();
@@ -1364,8 +1383,10 @@ void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
             QFile::copy(audioFilename, m_mediaTempDir->path() + QDir::separator() + audTmpFile);
             m_mediaBackendKar.setMediaCdg(m_mediaTempDir->path() + QDir::separator() + cdgTmpFile,
                                           m_mediaTempDir->path() + QDir::separator() + audTmpFile);
-            if (!k2k)
-                m_mediaBackendBm.fadeOut(!m_settings.bmKCrossFade());
+            if (!k2k) {
+                saveBmPlaybackState();
+                m_mediaBackendBm.fadeOutAndPause(!m_settings.bmKCrossFade());
+            }
             QApplication::setOverrideCursor(Qt::WaitCursor);
             m_mediaBackendKar.play();
             QApplication::restoreOverrideCursor();
@@ -1378,8 +1399,10 @@ void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
             m_logger->info("{} Playing temporary copy to avoid bad filename stuff w/ gstreamer: {}", m_loggingPrefix,
                            tmpFilePath.toStdString());
             m_mediaBackendKar.setMedia(tmpFilePath);
-            if (!k2k)
-                m_mediaBackendBm.fadeOut();
+            if (!k2k) {
+                saveBmPlaybackState();
+                m_mediaBackendBm.fadeOutAndPause(!m_settings.bmKCrossFade());
+            }
             m_mediaBackendKar.play();
             m_mediaBackendKar.fadeInImmediate();
         }
@@ -1426,6 +1449,7 @@ MainWindow::~MainWindow() {
     m_settings.saveColumnWidths(ui->tableViewBmDb);
     m_settings.saveColumnWidths(ui->tableViewBmPlaylist);
     m_settings.bmSetPlaylistIndex(ui->comboBoxBmPlaylists->currentIndex());
+    saveBmPlaybackState();
     m_settings.sync();
     m_logger->info("{} Program shutdown complete", m_loggingPrefix);
 }
@@ -2722,10 +2746,12 @@ void MainWindow::bmMediaStateChanged(const MediaBackend::State &newState) {
             resetBmLabels();
             break;
         case MediaBackend::EndOfMediaState: {
+            m_bmSavedPositionMs = 0;
             if (ui->checkBoxBmBreak->isChecked()) {
                 ui->checkBoxBmBreak->setChecked(false);
                 m_mediaBackendBm.stop(true);
                 resetBmLabels();
+                saveBmPlaybackState();
                 updateBreakMusicVisualizer();
                 return;
             }
@@ -2733,12 +2759,15 @@ void MainWindow::bmMediaStateChanged(const MediaBackend::State &newState) {
             if (plSong.has_value()) {
                 m_mediaBackendBm.setMedia(plSong->get().path);
                 m_tableModelPlaylistSongs.setCurrentPosition(plSong->get().position);
+                m_bmSavedSongIndex = plSong->get().position;
+                m_bmSavedSongPath = plSong->get().path;
+                saveBmPlaybackState();
                 m_logger->info("{} Break music auto-advancing to song: {}", m_loggingPrefix,
                                plSong->get().path.toStdString());
                 m_mediaBackendBm.stop(true);
                 m_mediaBackendBm.play();
                 if (m_mediaBackendKar.state() == MediaBackend::PlayingState)
-                    m_mediaBackendBm.fadeOutImmediate();
+                    m_mediaBackendBm.fadeOutAndPause(true);
             } else {
                 m_mediaBackendBm.stop(true);
                 resetBmLabels();
@@ -2746,9 +2775,14 @@ void MainWindow::bmMediaStateChanged(const MediaBackend::State &newState) {
             break;
         }
         case MediaBackend::PlayingState: {
+            ui->buttonBmPause->setChecked(false);
             auto plSong = m_tableModelPlaylistSongs.getCurrentSong();
-            if (plSong.has_value())
+            if (plSong.has_value()) {
                 ui->labelBmPlaying->setText(plSong->get().artist + " - " + plSong->get().title);
+                m_bmSavedSongIndex = plSong->get().position;
+                m_bmSavedSongPath = plSong->get().path;
+                saveBmPlaybackState();
+            }
             auto plNextSong = m_tableModelPlaylistSongs.getNextPlSong();
             if (!ui->checkBoxBmBreak->isChecked() && plNextSong.has_value())
                 ui->labelBmNext->setText(plNextSong->get().artist + " - " + plNextSong->get().title);
@@ -2757,6 +2791,8 @@ void MainWindow::bmMediaStateChanged(const MediaBackend::State &newState) {
             break;
         }
         case MediaBackend::PausedState:
+            ui->buttonBmPause->setChecked(true);
+            saveBmPlaybackState();
             break;
         case MediaBackend::UnknownState:
             resetBmLabels();
@@ -2768,6 +2804,13 @@ void MainWindow::bmMediaStateChanged(const MediaBackend::State &newState) {
 void MainWindow::bmMediaPositionChanged(const qint64 &position) {
     if (!m_sliderBmPositionPressed) {
         ui->sliderBmPosition->setValue((int) position);
+    }
+    if (m_mediaBackendBm.state() == MediaBackend::PlayingState && position > 0) {
+        m_bmSavedPositionMs = position;
+        if (auto plSong = m_tableModelPlaylistSongs.getCurrentSong(); plSong.has_value()) {
+            m_bmSavedSongIndex = plSong->get().position;
+            m_bmSavedSongPath = plSong->get().path;
+        }
     }
     ui->labelBmPosition->setText(QTime(0, 0, 0, 0).addMSecs((int) position).toString("m:ss"));
     ui->labelBmRemaining->setText(
@@ -2839,6 +2882,7 @@ void MainWindow::tableViewBmDbDoubleClicked(const QModelIndex &index) {
 }
 
 void MainWindow::buttonBmStopClicked() {
+    saveBmPlaybackState();
     m_mediaBackendBm.stop(false);
 }
 
@@ -2853,6 +2897,10 @@ void MainWindow::tableViewBmPlaylistDoubleClicked(const QModelIndex &index) {
     auto plSong = m_tableModelPlaylistSongs.getCurrentSong();
     if (!plSong.has_value())
         return;
+    m_bmSavedPositionMs = 0;
+    m_bmSavedSongIndex = plSong->get().position;
+    m_bmSavedSongPath = plSong->get().path;
+    saveBmPlaybackState();
     m_mediaBackendBm.setMedia(plSong->get().path);
     m_mediaBackendBm.play();
     if (m_mediaBackendKar.state() != MediaBackend::PlayingState)
@@ -4347,6 +4395,24 @@ void MainWindow::resetBmLabels() {
     ui->sliderBmPosition->setValue(0);
 }
 
+void MainWindow::saveBmPlaybackState() {
+    if (m_mediaBackendBm.state() == MediaBackend::PlayingState ||
+        m_mediaBackendBm.state() == MediaBackend::PausedState) {
+        qint64 curPos = m_mediaBackendBm.position();
+        if (curPos > 0)
+            m_bmSavedPositionMs = curPos;
+    }
+    if (auto curSong = m_tableModelPlaylistSongs.getCurrentSong(); curSong.has_value()) {
+        m_bmSavedSongIndex = curSong->get().position;
+        m_bmSavedSongPath = curSong->get().path;
+    }
+    if (m_bmSavedSongIndex >= 0)
+        m_settings.bmSetSongIndex(m_bmSavedSongIndex);
+    if (!m_bmSavedSongPath.isEmpty())
+        m_settings.bmSetSongPath(m_bmSavedSongPath);
+    m_settings.bmSetPlaybackPositionMs(m_bmSavedPositionMs);
+}
+
 void MainWindow::resumeOrStartBreakMusic() {
     if (m_mediaBackendBm.state() == MediaBackend::PlayingState) {
         m_mediaBackendBm.fadeIn(false);
@@ -4374,10 +4440,27 @@ void MainWindow::resumeOrStartBreakMusic() {
         updateBreakMusicVisualizer();
         return;
     }
-    int startPos = 0;
-    auto nextPlSong = m_tableModelPlaylistSongs.getNextPlSong();
-    if (nextPlSong.has_value()) {
-        startPos = nextPlSong->get().position;
+    int startPos = -1;
+    bool keepSavedPosition = false;
+    if (!m_bmSavedSongPath.isEmpty()) {
+        for (int i = 0; i < count; ++i) {
+            auto candidate = m_tableModelPlaylistSongs.getPlSongByPosition(i);
+            if (candidate.has_value() && candidate->get().path == m_bmSavedSongPath) {
+                startPos = i;
+                keepSavedPosition = true;
+                break;
+            }
+        }
+    }
+    if (startPos < 0) {
+        if (auto curSong = m_tableModelPlaylistSongs.getCurrentSong(); curSong.has_value()) {
+            startPos = curSong->get().position;
+            keepSavedPosition = (curSong->get().path == m_bmSavedSongPath);
+        } else if (m_bmSavedSongIndex >= 0 && m_bmSavedSongIndex < count) {
+            startPos = m_bmSavedSongIndex;
+        } else {
+            startPos = 0;
+        }
     }
     for (int i = 0; i < count; ++i) {
         int pos = (startPos + i) % count;
@@ -4385,6 +4468,14 @@ void MainWindow::resumeOrStartBreakMusic() {
         if (candidate.has_value() && QFile::exists(candidate->get().path)) {
             m_tableModelPlaylistSongs.setCurrentPosition(pos);
             m_mediaBackendBm.setMedia(candidate->get().path);
+            if (i == 0 && keepSavedPosition && m_bmSavedPositionMs > 0) {
+                m_mediaBackendBm.setInitialPosition(m_bmSavedPositionMs);
+            } else {
+                m_bmSavedPositionMs = 0;
+            }
+            m_bmSavedSongIndex = pos;
+            m_bmSavedSongPath = candidate->get().path;
+            saveBmPlaybackState();
             m_mediaBackendBm.play();
             m_mediaBackendBm.setVolume(ui->sliderBmVolume->value());
             m_mediaBackendBm.fadeIn(false);

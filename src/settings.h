@@ -209,6 +209,12 @@ public:
     void bmSetVolume(int bmVolume);
     int bmPlaylistIndex();
     void bmSetPlaylistIndex(int index);
+    int bmSongIndex();
+    void bmSetSongIndex(int index);
+    QString bmSongPath();
+    void bmSetSongPath(const QString &path);
+    qint64 bmPlaybackPositionMs();
+    void bmSetPlaybackPositionMs(qint64 posMs);
     int mplxMode();
     void setMplxMode(int mode);
     bool karaokeAutoAdvance();
