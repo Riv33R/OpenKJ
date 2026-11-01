@@ -230,13 +230,14 @@ void MediaBackend::play()
     if (state() == MediaBackend::PausedState)
     {
         m_logger->debug("{} Play called with playback currently paused, unpausing", m_loggingPrefix);
+        m_currentlyFadedOut = false;
         m_currentState = GST_STATE_PLAYING;
         gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
         emit stateChanged(MediaBackend::PlayingState);
         if (m_fade)
             fadeIn(false);
         else
-            m_fader->immediateIn();
+            fadeInImmediate();
         return;
     }
 
@@ -446,7 +447,7 @@ void MediaBackend::stop(const bool &skipFade)
     {
         m_logger->debug("{} Backend currently in paused state, stopping paused playback", m_loggingPrefix);
         stopPipeline();
-        m_fader->immediateIn();
+        fadeInImmediate();
         return;
     }
     if ((m_fade) && (!skipFade) && (state() == MediaBackend::PlayingState))
@@ -457,12 +458,13 @@ void MediaBackend::stop(const bool &skipFade)
             fadeOut(true);
             m_logger->debug("{} Fade out completed, stopping playback", m_loggingPrefix);
             stopPipeline();
-            m_fader->immediateIn();
+            fadeInImmediate();
             m_logger->info("{} Stop completed", m_loggingPrefix);
             return;
         }
     }
     stopPipeline();
+    fadeInImmediate();
     m_logger->info("{} Stop completed", m_loggingPrefix);
 }
 
@@ -494,8 +496,11 @@ void MediaBackend::timerFast_timeout()
     gint64 pos;
     if (!gst_element_query_position (m_audioBin, GST_FORMAT_TIME, &pos))
     {
-        m_lastPosition = 0;
-        emit positionChanged(0);
+        if (m_currentState != GST_STATE_PAUSED)
+        {
+            m_lastPosition = 0;
+            emit positionChanged(0);
+        }
         return;
     }
     auto mspos = pos / GST_MSECOND;

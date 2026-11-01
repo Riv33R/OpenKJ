@@ -14,7 +14,7 @@ constexpr int kNumBars = 32;
 constexpr int kNumParticles = 28;
 }
 
-VideoDisplay::VideoDisplay(QWidget *parent) : QWidget(parent)
+VideoDisplay::VideoDisplay(QWidget *parent) : QWidget(parent), m_logoRenderer(QString(":icons/Icons/okjlogo.svg"))
 {
     setAttribute(Qt::WA_OpaquePaintEvent, true);
     setAttribute(Qt::WA_NoSystemBackground, true);
@@ -22,6 +22,11 @@ VideoDisplay::VideoDisplay(QWidget *parent) : QWidget(parent)
     palette.setColor(QPalette::Window, Qt::black);
     setPalette(palette);
     setMouseTracking(true);
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,15,0))
+    if (m_logoRenderer.isValid())
+        m_logoRenderer.setAspectRatioMode(Qt::KeepAspectRatio);
+#endif
 
     initVisualizerState();
     m_animTimer.setInterval(33);
@@ -304,18 +309,12 @@ void VideoDisplay::paintVisualizer(QPainter &painter, const QRect &rect)
         painter.drawEllipse(QPointF(centerX, emblemY), ringR, ringR);
     }
 
-    // Render OpenKJ SVG logo or stylized music note inside the pulsing disc
+    // Render OpenKJ SVG logo inside the pulsing disc
+    if (m_logoRenderer.isValid())
     {
-        QSvgRenderer renderer(QString(":icons/Icons/okjlogo.svg"));
-        if (renderer.isValid())
-        {
-#if (QT_VERSION >= QT_VERSION_CHECK(5,15,0))
-            renderer.setAspectRatioMode(Qt::KeepAspectRatio);
-#endif
-            double logoSize = pulseRadius * 1.35;
-            QRectF logoRect(centerX - logoSize * 0.5, emblemY - logoSize * 0.5, logoSize, logoSize);
-            renderer.render(&painter, logoRect);
-        }
+        double logoSize = pulseRadius * 1.35;
+        QRectF logoRect(centerX - logoSize * 0.5, emblemY - logoSize * 0.5, logoSize, logoSize);
+        m_logoRenderer.render(&painter, logoRect);
     }
 
     // "Now Playing" Glassmorphism Card
@@ -443,11 +442,8 @@ void VideoDisplay::paintEvent(QPaintEvent *event)
         painter.fillRect(event->rect(), Qt::black);
         if (m_useDefaultBg)
         {
-            QSvgRenderer renderer(QString(":icons/Icons/okjlogo.svg"));
-#if (QT_VERSION >= QT_VERSION_CHECK(5,15,0))
-            renderer.setAspectRatioMode(Qt::KeepAspectRatio);
-#endif
-            renderer.render(&painter);
+            if (m_logoRenderer.isValid())
+                m_logoRenderer.render(&painter);
         }
         else
         {

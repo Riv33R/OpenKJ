@@ -7,6 +7,7 @@
 #include <QTimer>
 #include <QVector>
 #include <QString>
+#include <QSvgRenderer>
 
 class VideoDisplay : public QWidget
 {
@@ -41,6 +42,7 @@ private:
     double m_phase{0.0};
     QString m_nowPlayingArtist;
     QString m_nowPlayingTitle;
+    QSvgRenderer m_logoRenderer;
 
     void initVisualizerState();
     void stepAnimation();

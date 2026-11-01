@@ -179,6 +179,7 @@ void DlgCdg::showAlert(bool show)
     }
     else
     {
+        m_timerAlertCountdown.stop();
         ui->widgetAlert->hide();
         if (m_bmb.hasActiveVideo() && !m_kmb.hasActiveVideo()) {
             ui->videoDisplayBm->show();
