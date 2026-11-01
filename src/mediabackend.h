@@ -195,6 +195,8 @@ private:
     QTimer m_timerSlow;
     int m_silenceDuration{0};
     long m_positionWatchdogLastPos{0};
+    int m_hungCycles{0};
+    qint64 m_lastDuration{0};
 
     double m_playbackRate{1.0};
     int m_volume{0};

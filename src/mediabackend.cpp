@@ -305,6 +305,10 @@ void MediaBackend::resetPipeline()
     gst_element_set_state(m_pipeline, GST_STATE_NULL);
 
     m_hasVideo = false;
+    m_lastPosition = 0;
+    m_lastDuration = 0;
+    m_positionWatchdogLastPos = 0;
+    m_hungCycles = 0;
     gst_element_unlink(m_decoder, m_audioBin);
     gst_element_unlink(m_decoder, m_videoBin);
     gst_element_unlink(m_cdgSrc->getSrcElement(), m_videoBin);
@@ -471,6 +475,15 @@ void MediaBackend::timerFast_timeout()
         emit positionChanged(0);
         return;
     }
+    if (m_currentState == GST_STATE_PLAYING)
+    {
+        qint64 dur = duration();
+        if (dur > 0 && dur != m_lastDuration)
+        {
+            m_lastDuration = dur;
+            emit durationChanged(dur);
+        }
+    }
     gint64 pos;
     if (!gst_element_query_position (m_audioBin, GST_FORMAT_TIME, &pos))
     {
@@ -518,21 +531,30 @@ void MediaBackend::timerSlow_timeout()
     }
 
     // Check if playback is hung (playing but no movement since 1 second ago) for some reason
-    static int hungCycles{0};
     if (state() == PlayingState)
     {
         if (m_positionWatchdogLastPos == currPos && m_positionWatchdogLastPos > 10)
         {
-            hungCycles++;
-            m_logger->warn("{} Playback appears to be hung!  No position change for {} seconds!", m_loggingPrefix, hungCycles);
-            if (hungCycles >= 5)
+            m_hungCycles++;
+            m_logger->warn("{} Playback appears to be hung!  No position change for {} seconds!", m_loggingPrefix, m_hungCycles);
+            if (m_hungCycles >= 5)
             {
-                m_logger->warn("{} Playback has been hung for {} seconds, giving up!", m_loggingPrefix, hungCycles);
+                m_logger->warn("{} Playback has been hung for {} seconds, giving up!", m_loggingPrefix, m_hungCycles);
+                m_hungCycles = 0;
+                m_positionWatchdogLastPos = 0;
                 emit stateChanged(EndOfMediaState);
-                hungCycles = 0;
             }
         }
+        else
+        {
+            m_hungCycles = 0;
+        }
         m_positionWatchdogLastPos = currPos;
+    }
+    else
+    {
+        m_hungCycles = 0;
+        m_positionWatchdogLastPos = 0;
     }
 }
 
@@ -622,11 +644,19 @@ void MediaBackend::gstBusFunc(GstMessage *message)
             switch (state)
             {
                 case GST_STATE_PLAYING:
+                {
                     m_logger->debug("{} GStreamer reported state change to Playing", m_loggingPrefix);
+                    qint64 dur = duration();
+                    if (dur > 0)
+                    {
+                        m_lastDuration = dur;
+                        emit durationChanged(dur);
+                    }
                     emit stateChanged(MediaBackend::PlayingState);
                     if (m_currentlyFadedOut)
                         m_fader->immediateOut();
                     break;
+                }
 
                 case GST_STATE_PAUSED:
                     m_logger->debug("{} GStreamer reported state change to Paused", m_loggingPrefix);
@@ -954,6 +984,10 @@ void MediaBackend::stopPipeline()
     gst_element_set_state(m_pipeline, GST_STATE_NULL);
     m_currentState = GST_STATE_NULL;
     m_hasVideo = false;
+    m_lastPosition = 0;
+    m_lastDuration = 0;
+    m_positionWatchdogLastPos = 0;
+    m_hungCycles = 0;
     emit stateChanged(MediaBackend::StoppedState);
     emit hasActiveVideoChanged(false);
 }

@@ -1405,7 +1405,7 @@ void Settings::setMplxMode(int mode)
 
 bool Settings::karaokeAutoAdvance()
 {
-    return settings->value("karaokeAutoAdvance", false).toBool();
+    return settings->value("karaokeAutoAdvance", true).toBool();
 }
 
 void Settings::setKaraokeAutoAdvance(bool enabled)
