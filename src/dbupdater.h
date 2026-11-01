@@ -42,7 +42,7 @@ private:
     };
 
     // file extension list must be sorted and in lower case:
-    const std::array<std::string, 9> karaoke_file_extensions {
+    const std::array<std::string, 10> karaoke_file_extensions {
         "avi",
         "cdg",
         "m4v",
@@ -50,6 +50,7 @@ private:
         "mp4",
         "mpeg",
         "mpg",
+        "webm",
         "wmv",
         "zip"
     };

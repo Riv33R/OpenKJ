@@ -48,15 +48,15 @@ QVariant TableModelBreakSongs::headerData(int section, Qt::Orientation orientati
     {
         switch (section) {
         case COL_ID:
-            return "ID";
+            return tr("ID");
         case COL_ARTIST:
-            return "Artist";
+            return tr("Artist");
         case COL_TITLE:
-            return "Title";
+            return tr("Title");
         case COL_FILENAME:
-            return "Filename";
+            return tr("Filename");
         case COL_DURATION:
-            return "Duration";
+            return tr("Duration");
         }
     }
     return QVariant();
@@ -135,7 +135,7 @@ void TableModelBreakSongs::search(const QString &searchStr)
     m_lastSearch = searchStr;
     emit layoutAboutToBeChanged();
     std::vector<std::string> searchTerms;
-    std::string s = searchStr.toStdString();
+    std::string s = searchStr.toLower().toStdString();
     std::string::size_type prev_pos = 0, pos = 0;
     while((pos = s.find(' ', pos)) != std::string::npos)
     {

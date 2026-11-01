@@ -35,6 +35,7 @@ public:
     unsigned int getDuration() const;
     void setMedia(const QString& path);
     void taglibTags(const QString& path);
+    static QString decodeCp1251IfNeeded(const QString& str);
 
 signals:
 

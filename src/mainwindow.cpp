@@ -557,7 +557,7 @@ void MainWindow::treatAllSingersAsRegsChanged(bool enabled) {
     if (enabled) {
         ui->tableViewRotation->hideColumn(TableModelRotation::COL_REGULAR);
         if (ui->tabWidgetQueue->count() == 1)
-            ui->tabWidgetQueue->addTab(m_historyTabWidget, "History");
+            ui->tabWidgetQueue->addTab(m_historyTabWidget, tr("History"));
     } else {
         ui->tableViewRotation->showColumn(TableModelRotation::COL_REGULAR);
         int curSelSingerId{-1};
@@ -606,7 +606,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->pushButtonTempoUp->setEnabled(false);
     m_karaokeSongsModel.loadData();
     m_rotModel.loadData();
-    ui->comboBoxHistoryDblClick->addItems(QStringList{"Adds to queue", "Plays song"});
+    ui->comboBoxHistoryDblClick->addItems(QStringList{tr("Adds to queue"), tr("Plays song")});
     ui->tabWidgetQueue->setCurrentIndex(0);
     ui->tableViewHistory->setModel(&m_historySongsModel);
     ui->tableViewHistory->hideColumn(0);
@@ -614,7 +614,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tableViewHistory->hideColumn(2);
     ui->tableViewHistory->sortByColumn(3, Qt::AscendingOrder);
     ui->tableViewHistory->resizeColumnsToContents();
-    ui->comboBoxSearchType->addItems({QString("All"), QString("Artist"), QString("Title")});
+    ui->comboBoxSearchType->addItems({tr("All"), tr("Artist"), tr("Title")});
     ui->tableViewDB->hideColumn(TableModelKaraokeSongs::COL_ID);
     ui->tableViewDB->hideColumn(TableModelKaraokeSongs::COL_FILENAME);
     ui->tableViewRotation->setModel(&m_rotModel);
@@ -1367,7 +1367,7 @@ void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
         } else {
             // Close CDG if open to avoid double video playback
             m_logger->info("{} Playing non-CDG video file: {}", m_loggingPrefix, karaokeFilePath.toStdString());
-            QString tmpFilePath = m_mediaTempDir->path() + QDir::separator() + "tmpvid." + karaokeFilePath.right(4);
+            QString tmpFilePath = m_mediaTempDir->path() + QDir::separator() + "tmpvid." + QFileInfo(karaokeFilePath).suffix();
             QFile::copy(karaokeFilePath, tmpFilePath);
             m_logger->info("{} Playing temporary copy to avoid bad filename stuff w/ gstreamer: {}", m_loggingPrefix,
                            tmpFilePath.toStdString());
@@ -1436,7 +1436,6 @@ void MainWindow::databaseUpdated() {
     m_settings.restoreColumnWidths(ui->tableViewDB);
     requestsDialog->databaseUpdateComplete();
     m_lazyDurationUpdater->stopWork();
-    m_lazyDurationUpdater->deleteLater();
     m_lazyDurationUpdater = std::make_unique<LazyDurationUpdateController>(this);
     connect(m_lazyDurationUpdater.get(), &LazyDurationUpdateController::gotDuration, &m_karaokeSongsModel,
             &TableModelKaraokeSongs::setSongDuration);
@@ -2064,7 +2063,7 @@ void MainWindow::rotationDataChanged() {
     updateRotationDuration();
     QString sep = "•";
     requestsDialog->rotationChanged();
-    QString statusBarText = "Singers: ";
+    QString statusBarText = tr("Singers: ");
     statusBarText += QString::number(m_rotModel.singerCount());
     m_labelSingerCount.setText(statusBarText);
     QString tickerText;
@@ -2075,11 +2074,11 @@ void MainWindow::rotationDataChanged() {
         if (cs == "") {
             cs = m_rotModel.getSingerAtPosition(0).name;
             if (cs == "")
-                cs = "[nobody]";
+                cs = tr("[nobody]");
             nsPos = 0;
         } else
             nsPos = m_rotModel.getSinger(m_rotModel.currentSinger()).position;
-        QString ns = "[nobody]";
+        QString ns = tr("[nobody]");
         if (m_rotModel.singerCount() > 0) {
             if (nsPos + 1 < m_rotModel.singerCount())
                 nsPos++;
@@ -2090,8 +2089,8 @@ void MainWindow::rotationDataChanged() {
         tickerText.replace("%cs", cs);
         tickerText.replace("%ns", ns);
         tickerText.replace("%rc", QString::number(m_rotModel.singerCount()));
-        if (ui->labelArtist->text() == "None" && ui->labelTitle->text() == "None")
-            tickerText.replace("%curSong", "None");
+        if (ui->labelArtist->text() == tr("None") && ui->labelTitle->text() == tr("None"))
+            tickerText.replace("%curSong", tr("None"));
         else
             tickerText.replace("%curSong", ui->labelArtist->text() + " - " + ui->labelTitle->text());
         tickerText.replace("%m_curArtist", ui->labelArtist->text());
@@ -2101,18 +2100,18 @@ void MainWindow::rotationDataChanged() {
 
     }
     if (m_settings.tickerShowRotationInfo()) {
-        tickerText += "Singers: ";
+        tickerText += tr("Singers: ");
         tickerText += QString::number(m_rotModel.singerCount());
-        tickerText += " " + sep + " Current: ";
+        tickerText += " " + sep + " " + tr("Current: ");
         int displayPos;
         QString curSingerName = m_rotModel.getSinger(m_rotModel.currentSinger()).name;
         if (m_rotModel.currentSinger() < 0)
-            curSingerName = "None";
+            curSingerName = tr("None");
         if (curSingerName != "") {
             tickerText += curSingerName;
             displayPos = m_rotModel.getSinger(m_rotModel.currentSinger()).position;
         } else {
-            tickerText += "None ";
+            tickerText += tr("None") + " ";
             displayPos = -1;
         }
         int listSize;
@@ -2122,12 +2121,12 @@ void MainWindow::rotationDataChanged() {
             else
                 listSize = static_cast<int>(m_rotModel.singerCount() - 1);
             if (listSize > 0)
-                tickerText += " " + sep + " Upcoming: ";
+                tickerText += " " + sep + " " + tr("Upcoming: ");
         } else {
             listSize = m_settings.tickerShowNumSingers();
-            tickerText += " " + sep + " Next ";
+            tickerText += " " + sep + " " + tr("Next ");
             tickerText += QString::number(m_settings.tickerShowNumSingers());
-            tickerText += " Singers: ";
+            tickerText += tr(" Singers: ");
         }
         for (int i = 0; i < listSize; i++) {
             if (displayPos + 1 < m_rotModel.singerCount())
@@ -2172,12 +2171,12 @@ void MainWindow::tableViewDBContextMenuRequested(const QPoint &pos) {
         return;
     auto song = qvariant_cast<std::shared_ptr<okj::KaraokeSong>>(index.data(Qt::UserRole));
     QMenu contextMenu(this);
-    contextMenu.addAction("Preview", [&]() {
+    contextMenu.addAction(tr("Preview"), [&]() {
         previewKaraokeSong(song->path);
     });
     contextMenu.addSeparator();
-    contextMenu.addAction("Edit", [&] () { editSong(song); });
-    contextMenu.addAction("Mark bad", [&] () { markSongBad(song); });
+    contextMenu.addAction(tr("Edit"), [&] () { editSong(song); });
+    contextMenu.addAction(tr("Mark bad"), [&] () { markSongBad(song); });
     contextMenu.exec(QCursor::pos());
 }
 
@@ -2187,10 +2186,10 @@ void MainWindow::tableViewRotationContextMenuRequested(const QPoint &pos) {
         m_rtClickRotationSingerId = index.data(Qt::UserRole).toInt();
         QMenu contextMenu(this);
         if (ui->tableViewRotation->selectionModel()->selectedRows().size() > 1) {
-            contextMenu.addAction("Delete", &m_scutDeleteSinger, &QShortcut::activated);
+            contextMenu.addAction(tr("Delete"), &m_scutDeleteSinger, &QShortcut::activated);
         } else {
-            contextMenu.addAction("Rename", this, &MainWindow::renameSinger);
-            contextMenu.addAction("Set as top of rotation", [&]() {
+            contextMenu.addAction(tr("Rename"), this, &MainWindow::renameSinger);
+            contextMenu.addAction(tr("Set as top of rotation"), [&]() {
                 m_rotModel.setRotationTopSingerId(m_rtClickRotationSingerId);
             });
         }
@@ -2203,20 +2202,20 @@ void MainWindow::sfxButtonContextMenuRequested([[maybe_unused]]const QPoint &pos
     m_lastRtClickedSfxBtn.path = btn->buttonData().toString();
     m_lastRtClickedSfxBtn.name = btn->text();
     QMenu contextMenu(this);
-    contextMenu.addAction("Remove", this, &MainWindow::removeSfxButton);
+    contextMenu.addAction(tr("Remove"), this, &MainWindow::removeSfxButton);
     contextMenu.exec(QCursor::pos());
 }
 
 void MainWindow::renameSinger() {
     bool ok;
     QString currentName = m_rotModel.getSinger(m_rtClickRotationSingerId).name;
-    QString name = QInputDialog::getText(this, "Rename singer", "New name:", QLineEdit::Normal, currentName, &ok);
+    QString name = QInputDialog::getText(this, tr("Rename singer"), tr("New name:"), QLineEdit::Normal, currentName, &ok);
     if (ok && !name.isEmpty()) {
         if ((name.toLower() == currentName.toLower() && name != currentName) || !m_rotModel.singerExists(name)) {
             m_rotModel.singerSetName(m_rtClickRotationSingerId, name);
         } else if (m_rotModel.singerExists(name)) {
-            QMessageBox::warning(this, "Singer exists!", "A singer named " + name +
-                                                         " already exists. Please choose a unique name and try again. The operation has been cancelled.",
+            QMessageBox::warning(this, tr("Singer exists!"), tr("A singer named ") + name +
+                                                         tr(" already exists. Please choose a unique name and try again. The operation has been cancelled."),
                                  QMessageBox::Ok);
         }
 
@@ -2225,7 +2224,7 @@ void MainWindow::renameSinger() {
 
 void MainWindow::tableViewBmPlaylistContextMenu([[maybe_unused]]const QPoint &pos) {
     QMenu contextMenu(this);
-    contextMenu.addAction("Delete", &m_scutDeletePlSong, &QShortcut::activated);
+    contextMenu.addAction(tr("Delete"), &m_scutDeletePlSong, &QShortcut::activated);
     contextMenu.exec(QCursor::pos());
 }
 
@@ -2238,22 +2237,22 @@ void MainWindow::tableViewQueueContextMenuRequested(const QPoint &pos) {
             m_rtClickQueueSongId = index.sibling(index.row(), 0).data().toInt();
             dlgKeyChange->setActiveSong(m_rtClickQueueSongId);
             QMenu contextMenu(this);
-            contextMenu.addAction("Preview", [&] () {
+            contextMenu.addAction(tr("Preview"), [&] () {
                 previewKaraokeSong(index.sibling(index.row(), TableModelQueueSongs::COL_PATH).data().toString());
             });
             contextMenu.addSeparator();
-            contextMenu.addAction("Set Key Change", this, &MainWindow::setKeyChange);
-            contextMenu.addAction("Toggle played", this, &MainWindow::toggleQueuePlayed);
+            contextMenu.addAction(tr("Set Key Change"), this, &MainWindow::setKeyChange);
+            contextMenu.addAction(tr("Toggle played"), this, &MainWindow::toggleQueuePlayed);
             contextMenu.addSeparator();
-            contextMenu.addAction("Delete", &m_scutDeleteSong, &QShortcut::activated);
+            contextMenu.addAction(tr("Delete"), &m_scutDeleteSong, &QShortcut::activated);
             contextMenu.exec(QCursor::pos());
         }
     } else if (selCount > 1) {
         QMenu contextMenu(this);
-        contextMenu.addAction("Set Played", this, &MainWindow::setMultiPlayed);
-        contextMenu.addAction("Set Unplayed", this, &MainWindow::setMultiUnplayed);
+        contextMenu.addAction(tr("Set Played"), this, &MainWindow::setMultiPlayed);
+        contextMenu.addAction(tr("Set Unplayed"), this, &MainWindow::setMultiUnplayed);
         contextMenu.addSeparator();
-        contextMenu.addAction("Delete", &m_scutDeleteSong, &QShortcut::activated);
+        contextMenu.addAction(tr("Delete"), &m_scutDeleteSong, &QShortcut::activated);
 
         contextMenu.exec(QCursor::pos());
     }
@@ -2950,18 +2949,24 @@ void MainWindow::actionPlaylistImportTriggered() {
         TagReader reader;
         for (int i = 0; i < files.size(); i++) {
             if (QFile(files.at(i)).exists()) {
-                reader.setMedia(files.at(i).toLocal8Bit());
+                reader.setMedia(files.at(i));
                 QString duration = QString::number(reader.getDuration() / 1000);
                 QString artist = reader.getArtist();
                 QString title = reader.getTitle();
                 QString filename = QFileInfo(files.at(i)).fileName();
-                QString queryString =
-                        "INSERT OR IGNORE INTO bmsongs (artist,title,path,filename,duration,searchstring) VALUES(\"" +
-                        artist + "\",\"" + title + "\",\"" + files.at(i) + "\",\"" + filename + "\",\"" + duration +
-                        "\",\"" + artist + title + filename + "\")";
-                query.exec(queryString);
+                QString path = files.at(i);
+                QString searchstring = artist + " " + title + " " + filename;
+                QString queryString = "INSERT OR IGNORE INTO bmsongs (artist,title,path,filename,duration,searchstring) VALUES(:artist,:title,:path,:filename,:duration,:searchstring)";
+                query.prepare(queryString);
+                query.bindValue(":artist", artist);
+                query.bindValue(":title", title);
+                query.bindValue(":path", path);
+                query.bindValue(":filename", filename);
+                query.bindValue(":duration", duration);
+                query.bindValue(":searchstring", searchstring);
+                query.exec();
             } else if (QFile(importPath + "/" + files.at(i)).exists()) {
-                reader.setMedia(importPath + "/" + files.at(i).toLocal8Bit());
+                reader.setMedia(importPath + "/" + files.at(i));
                 QString duration = QString::number(reader.getDuration() / 1000);
                 QString artist = reader.getArtist();
                 QString title = reader.getTitle();
@@ -3588,10 +3593,10 @@ void MainWindow::tableViewRotationCurrentChanged(const QModelIndex &cur, const Q
     if (!m_settings.treatAllSingersAsRegs() && !cur.sibling(cur.row(), TableModelRotation::COL_REGULAR).data().toBool())
         ui->tabWidgetQueue->removeTab(1);
     else if (ui->tabWidgetQueue->count() == 1) {
-        ui->tabWidgetQueue->addTab(m_historyTabWidget, "History");
+        ui->tabWidgetQueue->addTab(m_historyTabWidget, tr("History"));
     }
     ui->gbxQueue->setTitle(
-            QString("Song Queue - " + cur.sibling(cur.row(), TableModelRotation::COL_NAME).data().toString()));
+            QString(tr("Song Queue") + " - " + cur.sibling(cur.row(), TableModelRotation::COL_NAME).data().toString()));
     if (!ui->tabWidgetQueue->isVisible()) {
         ui->tabWidgetQueue->setVisible(true);
         ui->labelNoSinger->setVisible(false);
@@ -3614,13 +3619,13 @@ void MainWindow::updateRotationDuration() {
             hours = minutes / 60;
             minutes = minutes % 60;
             if (hours > 1)
-                text = " Rotation Duration: " + QString::number(hours) + " hours " + QString::number(minutes) + " min";
+                text = " " + tr("Rotation Duration: ") + QString::number(hours) + " " + tr("hours") + " " + QString::number(minutes) + " " + tr("min");
             else
-                text = " Rotation Duration: " + QString::number(hours) + " hour " + QString::number(minutes) + " min";
+                text = " " + tr("Rotation Duration: ") + QString::number(hours) + " " + tr("hour") + " " + QString::number(minutes) + " " + tr("min");
         } else
-            text = " Rotation Duration: " + QString::number(minutes) + " min";
+            text = " " + tr("Rotation Duration: ") + QString::number(minutes) + " " + tr("min");
     } else
-        text = " Rotation Duration: 0 min";
+        text = " " + tr("Rotation Duration: ") + "0 " + tr("min");
     m_labelRotationDuration.setText(text);
 }
 
@@ -3629,7 +3634,7 @@ void MainWindow::rotationSelectionChanged(const QItemSelection &selected, const 
         m_logger->trace("{} Rotation Selection Cleared!", m_loggingPrefix);
         m_qModel.loadSinger(-1);
         ui->tableViewRotation->reset();
-        ui->gbxQueue->setTitle("Song Queue");
+        ui->gbxQueue->setTitle(tr("Song Queue"));
         ui->tabWidgetQueue->setVisible(false);
         ui->labelNoSinger->setVisible(true);
     }
@@ -4240,11 +4245,11 @@ void MainWindow::tableViewHistoryContextMenu(const QPoint &pos) {
         QModelIndex index = ui->tableViewHistory->indexAt(pos);
         if (index.isValid()) {
             QMenu contextMenu(this);
-            contextMenu.addAction("Preview", [&]() {
+            contextMenu.addAction(tr("Preview"), [&]() {
                 QString filename = index.sibling(index.row(), 2).data().toString();
                 if (!QFile::exists(filename)) {
                     QMessageBox::warning(this, tr("Missing File!"),
-                                         "Specified karaoke file missing, preview aborted!\n\n" + m_dbRtClickFile,
+                                         tr("Specified karaoke file missing, preview aborted!\n\n") + m_dbRtClickFile,
                                          QMessageBox::Ok);
                     return;
                 }
@@ -4252,14 +4257,14 @@ void MainWindow::tableViewHistoryContextMenu(const QPoint &pos) {
                 videoPreview->setAttribute(Qt::WA_DeleteOnClose);
                 videoPreview->show();
             });
-            contextMenu.addAction("Play", this, &MainWindow::buttonHistoryPlayClicked);
-            contextMenu.addAction("Add to queue", this, &MainWindow::buttonHistoryToQueueClicked);
+            contextMenu.addAction(tr("Play"), this, &MainWindow::buttonHistoryPlayClicked);
+            contextMenu.addAction(tr("Add to queue"), this, &MainWindow::buttonHistoryToQueueClicked);
             contextMenu.addSeparator();
-            contextMenu.addAction("Delete", [&]() {
+            contextMenu.addAction(tr("Delete"), [&]() {
                 QMessageBox msgBox;
-                msgBox.setText("Delete song from singer history?");
+                msgBox.setText(tr("Delete song from singer history?"));
                 msgBox.setIcon(QMessageBox::Warning);
-                msgBox.setInformativeText("Are you sure you want to remove this song from the singer's history?");
+                msgBox.setInformativeText(tr("Are you sure you want to remove this song from the singer's history?"));
                 msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::Cancel);
                 msgBox.setDefaultButton(QMessageBox::Cancel);
                 int ret = msgBox.exec();
@@ -4273,13 +4278,13 @@ void MainWindow::tableViewHistoryContextMenu(const QPoint &pos) {
         }
     } else if (selCount > 1) {
         QMenu contextMenu(this);
-        contextMenu.addAction("Add to queue", this, &MainWindow::buttonHistoryToQueueClicked);
+        contextMenu.addAction(tr("Add to queue"), this, &MainWindow::buttonHistoryToQueueClicked);
         contextMenu.addSeparator();
-        contextMenu.addAction("Delete", [&]() {
+        contextMenu.addAction(tr("Delete"), [&]() {
             QMessageBox msgBox;
-            msgBox.setText("Delete songs from singer history?");
+            msgBox.setText(tr("Delete songs from singer history?"));
             msgBox.setIcon(QMessageBox::Warning);
-            msgBox.setInformativeText("Are you sure you want to remove these songs from the singer's history?");
+            msgBox.setInformativeText(tr("Are you sure you want to remove these songs from the singer's history?"));
             msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::Cancel);
             msgBox.setDefaultButton(QMessageBox::Cancel);
             int ret = msgBox.exec();

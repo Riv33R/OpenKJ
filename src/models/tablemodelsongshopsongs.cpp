@@ -17,17 +17,17 @@ QVariant TableModelSongShopSongs::headerData(int section, Qt::Orientation orient
     {
     QString txt;
         if (section == 0)
-            txt = QString("Artist");
+            txt = tr("Artist");
         if (section == 1)
-            txt = QString("Title");
+            txt = tr("Title");
         if (section == 2)
-            txt = QString("SongID");
+            txt = tr("SongID");
         if (section == 3)
-            txt = QString("Vendor");
+            txt = tr("Vendor");
         if (section == 4)
-            txt = QString("Format");
+            txt = tr("Format");
         if (section == 5)
-            txt = QString("Price");
+            txt = tr("Price");
         return QVariant(txt);
     }
     else

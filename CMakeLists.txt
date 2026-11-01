@@ -116,12 +116,16 @@ endif ()
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set(STATIC_TAGLIB True)
     set(WINDOWS_ICON_RC "src/appicon.rc")
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-	set(GST_BASE_PATH "C:/Program Files/gstreamer/1.0/mingw_x86")
-	set(GST_BASE_PATH_NATIVE "C:\\Program Files\\gstreamer\\1.0\\mingw_x86")
-    elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-	set(GST_BASE_PATH "C:/Program Files/gstreamer/1.0/mingw_x86_64")
-	set(GST_BASE_PATH_NATIVE "C:\\Program Files\\gstreamer\\1.0\\mingw_x86_64")
+    if (NOT DEFINED GST_BASE_PATH)
+        if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+            set(GST_BASE_PATH "C:/Program Files/gstreamer/1.0/mingw_x86")
+            set(GST_BASE_PATH_NATIVE "C:\\Program Files\\gstreamer\\1.0\\mingw_x86")
+        elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+            set(GST_BASE_PATH "C:/Program Files/gstreamer/1.0/mingw_x86_64")
+            set(GST_BASE_PATH_NATIVE "C:\\Program Files\\gstreamer\\1.0\\mingw_x86_64")
+        endif ()
+    elseif (NOT DEFINED GST_BASE_PATH_NATIVE)
+        file(TO_NATIVE_PATH "${GST_BASE_PATH}" GST_BASE_PATH_NATIVE)
     endif ()
     message("Using GST_BASE_PATH: ${GST_BASE_PATH}")
     message("Using GST_BASE_PATH_NATIVE: ${GST_BASE_PATH_NATIVE}")
@@ -131,25 +135,40 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
             ${GST_BASE_PATH}/lib/glib-2.0/include
             ${GST_BASE_PATH}/include/glib-2.0/gobject
     )
-    link_directories(
-            "${GST_BASE_PATH}/lib"
-    )
     add_compile_definitions(
             MINIZ_NO_TIME
     )
 
-    link_libraries(
-            gstreamer-1.0
-            glib-2.0
-            gobject-2.0
-            gstbase-1.0
-            gstapp-1.0
-            gstaudio-1.0
-            gstpbutils-1.0
-            gstcontroller-1.0
-            gstvideo-1.0
-            winmm
-    )
+    if (MINGW)
+        link_libraries(
+                "${GST_BASE_PATH}/lib/libgstreamer-1.0.dll.a"
+                "${GST_BASE_PATH}/lib/libglib-2.0.dll.a"
+                "${GST_BASE_PATH}/lib/libgobject-2.0.dll.a"
+                "${GST_BASE_PATH}/lib/libgstbase-1.0.dll.a"
+                "${GST_BASE_PATH}/lib/libgstapp-1.0.dll.a"
+                "${GST_BASE_PATH}/lib/libgstaudio-1.0.dll.a"
+                "${GST_BASE_PATH}/lib/libgstpbutils-1.0.dll.a"
+                "${GST_BASE_PATH}/lib/libgstcontroller-1.0.dll.a"
+                "${GST_BASE_PATH}/lib/libgstvideo-1.0.dll.a"
+                winmm
+        )
+    else ()
+        link_directories(
+                "${GST_BASE_PATH}/lib"
+        )
+        link_libraries(
+                gstreamer-1.0
+                glib-2.0
+                gobject-2.0
+                gstbase-1.0
+                gstapp-1.0
+                gstaudio-1.0
+                gstpbutils-1.0
+                gstcontroller-1.0
+                gstvideo-1.0
+                winmm
+        )
+    endif ()
 
 endif ()
 
@@ -471,6 +490,8 @@ set(SOURCE_FILES
         src/runguard/runguard.cpp
         src/durationlazyupdater.cpp
         src/idledetect.cpp
+        src/okjtranslator.cpp
+        src/okjtranslator.h
         src/mainwindow.h
         src/dlgaddsong.h
         src/dlgvideopreview.h

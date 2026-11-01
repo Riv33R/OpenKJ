@@ -2,7 +2,7 @@
 #include <QRegularExpression>
 #include <QTemporaryDir>
 #include "tagreader.h"
-#include "okarchive.h"
+#include "mzarchive.h"
 #include <QSqlQuery>
 
 KaraokeFileInfo::KaraokeFileInfo(QObject *parent, std::shared_ptr<KaraokeFilePatternResolver> patternResolver) : QObject(parent), m_patternResolver(patternResolver) {
@@ -43,7 +43,7 @@ void KaraokeFileInfo::readTags()
     }
     else if (m_filename.endsWith(".zip", Qt::CaseInsensitive))
     {
-        OkArchive archive;
+        MzArchive archive;
         QTemporaryDir dir;
         archive.setArchiveFile(m_filename);
         archive.checkAudio();
@@ -126,7 +126,7 @@ const int& KaraokeFileInfo::getDuration()
         return duration;
     if (m_filename.endsWith(".zip", Qt::CaseInsensitive))
     {
-        OkArchive archive;
+        MzArchive archive;
         archive.setArchiveFile(m_filename);
         duration = archive.getSongDuration();
     }

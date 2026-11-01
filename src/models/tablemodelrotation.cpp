@@ -59,9 +59,9 @@ QVariant TableModelRotation::headerData(int section, Qt::Orientation orientation
     if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
         switch (section) {
             case COL_NAME:
-                return "Name";
+                return tr("Name");
             case COL_NEXT_SONG:
-                return "Next Song";
+                return tr("Next Song");
             default:
                 return {};
         }

@@ -57,24 +57,24 @@ DlgSettings::DlgSettings(MediaBackend &AudioBackend, MediaBackend &BmAudioBacken
 #endif
     ui->comboBoxConsoleLogLevel->addItems(
             {
-                    "Disabled",
-                    "Critical",
-                    "Error",
-                    "Warning",
-                    "Info",
-                    "Debug",
-                    "Trace"
+                    tr("Disabled"),
+                    tr("Critical"),
+                    tr("Error"),
+                    tr("Warning"),
+                    tr("Info"),
+                    tr("Debug"),
+                    tr("Trace")
             }
     );
     ui->comboBoxFileLogLevel->addItems(
             {
-                    "Disabled",
-                    "Critical",
-                    "Error",
-                    "Warning",
-                    "Info",
-                    "Debug",
-                    "Trace"
+                    tr("Disabled"),
+                    tr("Critical"),
+                    tr("Error"),
+                    tr("Warning"),
+                    tr("Info"),
+                    tr("Debug"),
+                    tr("Trace")
             }
     );
     ui->comboBoxConsoleLogLevel->setCurrentIndex(m_settings.getConsoleLogLevel());
@@ -189,12 +189,15 @@ DlgSettings::DlgSettings(MediaBackend &AudioBackend, MediaBackend &BmAudioBacken
         ui->comboBoxCodec->setCurrentIndex(1);
     else
         ui->comboBoxCodec->setCurrentIndex(ui->comboBoxCodec->findText(m_settings.recordingCodec()));
-    ui->comboBoxUpdateBranch->addItem("Stable");
-    ui->comboBoxUpdateBranch->addItem("Development");
-    ui->cbxTheme->addItem("OS Native");
-    ui->cbxTheme->addItem("Fusion Dark");
-    ui->cbxTheme->addItem("Fusion Light");
+    ui->comboBoxUpdateBranch->addItem(tr("Stable"));
+    ui->comboBoxUpdateBranch->addItem(tr("Development"));
+    ui->cbxTheme->addItem(tr("OS Native"));
+    ui->cbxTheme->addItem(tr("Fusion Dark"));
+    ui->cbxTheme->addItem(tr("Fusion Light"));
     ui->cbxTheme->setCurrentIndex(m_settings.theme());
+    ui->cbxLanguage->addItem("Русский");
+    ui->cbxLanguage->addItem("English");
+    ui->cbxLanguage->setCurrentIndex(m_settings.language() == "en" ? 1 : 0);
     ui->lineEditOutputDir->setText(m_settings.recordingOutputDir());
     ui->cbxTickerShowRotationInfo->setChecked(m_settings.tickerShowRotationInfo());
     ui->groupBoxTicker->setChecked(m_settings.tickerEnabled());
@@ -306,95 +309,95 @@ QStringList DlgSettings::getMonitors() {
 void DlgSettings::setupHotkeysForm() {
     std::vector<KeyboardShortcut> shortcuts;
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Volume up",
+            tr("Karaoke - Volume up"),
             "kVolUp"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Volume down",
+            tr("Karaoke - Volume down"),
             "kVolDn"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Volume mute/unmute",
+            tr("Karaoke - Volume mute/unmute"),
             "kVolMute"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Pause/unpause",
+            tr("Karaoke - Pause/unpause"),
             "kPause"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Stop",
+            tr("Karaoke - Stop"),
             "kStop"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Jump back (5s)",
+            tr("Karaoke - Jump back (5s)"),
             "kRwnd"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Jump forward (5s)",
+            tr("Karaoke - Jump forward (5s)"),
             "kFfwd"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Restart track",
+            tr("Karaoke - Restart track"),
             "kRestartSong"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Play next unsung queued karaoke song",
+            tr("Karaoke - Play next unsung queued karaoke song"),
             "kPlayNextUnsung"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Karaoke - Select next singer w/ unsung queued songs",
+            tr("Karaoke - Select next singer w/ unsung queued songs"),
             "kSelectNextSinger"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Break Music - Volume up",
+            tr("Break Music - Volume up"),
             "bVolUp"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Break Music - Volume down",
+            tr("Break Music - Volume down"),
             "bVolDn"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Break Music - Volume mute/unmute",
+            tr("Break Music - Volume mute/unmute"),
             "bVolMute"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Break Music - Pause/unpause",
+            tr("Break Music - Pause/unpause"),
             "bPause"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Break Music - Stop",
+            tr("Break Music - Stop"),
             "bStop"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Break Music - Jump back (5s)",
+            tr("Break Music - Jump back (5s)"),
             "bRwnd"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Break Music - Jump forward (5s)",
+            tr("Break Music - Jump forward (5s)"),
             "bFfwd"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Break Music - Restart track",
+            tr("Break Music - Restart track"),
             "bRestartSong"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Toggle singer/video window visibility",
+            tr("Toggle singer/video window visibility"),
             "toggleSingerWindow"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Show add singer dialog",
+            tr("Show add singer dialog"),
             "addSinger"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Show regular singers dialog",
+            tr("Show regular singers dialog"),
             "loadRegularSinger"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Show the incoming requests dialog (if enabled)",
+            tr("Show the incoming requests dialog (if enabled)"),
             "showIncomingRequests"
     });
     shortcuts.emplace_back(KeyboardShortcut{
-            "Jump to karaoke search (second press clears search)",
+            tr("Jump to karaoke search (second press clears search)"),
             "jumpToSearch"
     });
 
@@ -1083,3 +1086,10 @@ void DlgSettings::comboBoxFileLogLevelChanged(int index) {
     if (m_logger->level() < sink->level())
         m_logger->set_level(sink->level());
 }
+
+void DlgSettings::on_cbxLanguage_currentIndexChanged(int index) {
+    if (!m_pageSetupDone)
+        return;
+    m_settings.setLanguage(index == 0 ? "ru" : "en");
+}
+

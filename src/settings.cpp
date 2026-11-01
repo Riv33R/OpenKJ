@@ -48,6 +48,7 @@ bool Settings::lastStartupOk() const
 void Settings::setStartupOk(const bool ok)
 {
     settings->setValue("startupOk", ok);
+    settings->sync();
 }
 
 QString Settings::lastRunVersion() const
@@ -1336,6 +1337,11 @@ void Settings::setTheme(int theme)
     settings->setValue("theme", theme);
 }
 
+void Settings::setLanguage(const QString &language)
+{
+    settings->setValue("language", language);
+}
+
 void Settings::setBookCreatorCols(int cols)
 {
     settings->setValue("bookCreatorCols", cols);
@@ -1636,6 +1642,11 @@ int Settings::updatesBranch()
 int Settings::theme() const
 {
     return settings->value("theme", 1).toInt();
+}
+
+QString Settings::language() const
+{
+    return settings->value("language", "ru").toString();
 }
 
 const QPoint Settings::durationPosition()

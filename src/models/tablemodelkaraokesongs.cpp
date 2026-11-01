@@ -61,21 +61,21 @@ QVariant TableModelKaraokeSongs::getColumnSizeHint(int section) const {
 QVariant TableModelKaraokeSongs::getColumnName(int section) {
     switch (section) {
         case COL_ID:
-            return "ID";
+            return tr("ID");
         case COL_ARTIST:
-            return "Artist";
+            return tr("Artist");
         case COL_TITLE:
-            return "Title";
+            return tr("Title");
         case COL_SONGID:
-            return "SongID";
+            return tr("SongID");
         case COL_FILENAME:
-            return "Filename";
+            return tr("Filename");
         case COL_DURATION:
-            return "Time";
+            return tr("Time");
         case COL_PLAYS:
-            return "Plays";
+            return tr("Plays");
         case COL_LASTPLAY:
-            return "Last Played";
+            return tr("Last Played");
         default:
             return {};
     }

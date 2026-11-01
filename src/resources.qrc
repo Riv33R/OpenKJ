@@ -172,5 +172,7 @@
         <file>Icons/okjbreeze-dark/mimetypes/22/video-mp4.svg</file>
         <file>Icons/okjbreeze-dark/actions/22/media-playlist-append.svg</file>
     </qresource>
-    <qresource prefix="/"/>
+    <qresource prefix="/">
+        <file>translations/openkj_ru.ts</file>
+    </qresource>
 </RCC>

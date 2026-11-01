@@ -147,6 +147,7 @@ private slots:
     void on_cbxBmAutostart_clicked(bool checked);
     void on_spinBoxInterval_valueChanged(int arg1);
     void on_cbxTheme_currentIndexChanged(int index);
+    void on_cbxLanguage_currentIndexChanged(int index);
     void on_btnBrowse_clicked();
     void on_fontComboBox_currentFontChanged(const QFont &f);
     void on_spinBoxAppFontSize_valueChanged(int arg1);

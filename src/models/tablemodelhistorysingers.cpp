@@ -25,11 +25,11 @@ QVariant TableModelHistorySingers::headerData(int section, Qt::Orientation orien
     {
         switch (section) {
         case 0:
-            return "id";
+            return tr("id");
         case 1:
-            return "Name";
+            return tr("Name");
         case 2:
-            return "Songs";
+            return tr("Songs");
         default:
             return {};
         }

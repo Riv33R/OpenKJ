@@ -105,15 +105,15 @@ QVariant TableModelRequests::headerData(int section, Qt::Orientation orientation
     if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
         switch (section) {
             case SINGER:
-                return "Singer";
+                return tr("Singer");
             case ARTIST:
-                return "Artist";
+                return tr("Artist");
             case TITLE:
-                return "Title";
+                return tr("Title");
             case KEYCHG:
-                return "Key";
+                return tr("Key");
             case TIMESTAMP:
-                return "Received";
+                return tr("Received");
             default:
                 return "";
         }

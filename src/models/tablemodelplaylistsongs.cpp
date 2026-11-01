@@ -26,15 +26,15 @@ QVariant TableModelPlaylistSongs::headerData(int section, Qt::Orientation orient
     if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
         switch (section) {
             case COL_POSITION:
-                return "Position";
+                return tr("Position");
             case COL_ARTIST:
-                return "Artist";
+                return tr("Artist");
             case COL_TITLE:
-                return "Title";
+                return tr("Title");
             case COL_FILENAME:
-                return "Filename";
+                return tr("Filename");
             case COL_DURATION:
-                return "Duration";
+                return tr("Duration");
             default:
                 return {};
         }

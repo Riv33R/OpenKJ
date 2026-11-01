@@ -201,12 +201,12 @@ void DlgDatabase::scan(bool scanAllPaths)
         msgBox.exec();
         if (msgBox.clickedButton() == yesButton) {
             updater.removeMissingFilesFromDatabase();
+            emit databaseUpdateComplete();
         }
     }
 
     dbUpdateDlg->hide();
     QMessageBox::information(this, tr("Update Complete"), tr("Database update complete."));
-    emit databaseUpdateComplete();
 }
 
 void DlgDatabase::on_btnClearDatabase_clicked()
@@ -268,6 +268,7 @@ void DlgDatabase::on_btnExport_clicked()
             QMessageBox::warning(this, tr("Error saving file"), tr("Unable to open selected file for writing.  Please verify that you have the proper permissions to write to that location."),QMessageBox::Close);
             return;
         }
+        csvFile.write("\xEF\xBB\xBF");
         QSqlQuery query;
         query.exec("SELECT * from dbsongs ORDER BY artist,title,filename");
         while (query.next())
@@ -277,7 +278,7 @@ void DlgDatabase::on_btnExport_clicked()
             QString songId = query.value("discid").toString();
             QString filepath = query.value("path").toString();
             QString data = "\"" + artist + "\",\"" + title + "\",\"" + songId + "\",\"" + filepath + "\"" + "\n";
-            csvFile.write(data.toLocal8Bit().data());
+            csvFile.write(data.toUtf8());
         }
         csvFile.close();
     }

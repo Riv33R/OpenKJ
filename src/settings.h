@@ -252,6 +252,7 @@ public:
     bool checkUpdates();
     int updatesBranch();
     [[nodiscard]] int theme() const;
+    [[nodiscard]] QString language() const;
     const QPoint durationPosition();
     bool dbDirectoryWatchEnabled();
     SfxEntryList getSfxEntries();
@@ -370,6 +371,7 @@ public slots:
     void setCheckUpdates(bool enabled);
     void setUpdatesBranch(int index);
     void setTheme(int theme);
+    void setLanguage(const QString &language);
     void setBookCreatorCols(int cols);
     void setBookCreatorPageSize(int size);
     void setStoreDownloadDir(QString path);

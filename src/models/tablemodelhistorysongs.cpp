@@ -294,23 +294,23 @@ QVariant TableModelHistorySongs::headerData(int section, Qt::Orientation orienta
 QString TableModelHistorySongs::getColumnName(int section) const {
     switch (section) {
         case SONG_ID:
-            return "id";
+            return tr("id");
         case SINGER_ID:
-            return "historySingerId";
+            return tr("historySingerId");
         case PATH:
-            return "filepath";
+            return tr("filepath");
         case ARTIST:
-            return "Artist";
+            return tr("Artist");
         case TITLE:
-            return "Title";
+            return tr("Title");
         case SONGID:
-            return "SongID";
+            return tr("SongID");
         case KEY_CHANGE:
-            return "Key";
+            return tr("Key");
         case SUNG_COUNT:
-            return "Plays";
+            return tr("Plays");
         case LAST_SUNG:
-            return "Last Play";
+            return tr("Last Play");
         default:
             return {};
     }

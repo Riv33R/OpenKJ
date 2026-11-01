@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2013-2021 Thomas Isaac Lightburn
  *
  *
@@ -28,11 +28,25 @@
 #include "idledetect.h"
 #include "runguard/runguard.h"
 #include "okjversion.h"
+#include "okjtranslator.h"
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/async_logger.h>
 #include <spdlog/async.h>
 
+
+#ifdef __MINGW32__
+#include <streambuf>
+struct OkjStreambufCompat {
+    std::streampos seekpos(std::streampos, std::ios_base::openmode)
+        __asm__("_ZNSt15basic_streambufIcSt11char_traitsIcEE7seekposESt4fposIiESt13_Ios_Openmode");
+};
+__attribute__((used))
+std::streampos OkjStreambufCompat::seekpos(std::streampos, std::ios_base::openmode)
+{
+    return std::streampos(std::streamoff(-1));
+}
+#endif
 
 Settings settings;
 IdleDetect *filter;
@@ -80,7 +94,7 @@ int main(int argc, char *argv[]) {
     logFilePath = logDir + QDir::separator() + filename;
 
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath.toStdString(), false);
+    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath.toLocal8Bit().toStdString(), false);
     spdlog::init_thread_pool(8192, 2);
     std::vector<spdlog::sink_ptr> sinks{console_sink, file_sink};
     logger = std::make_shared<spdlog::async_logger>("logger", sinks.begin(), sinks.end(), spdlog::thread_pool(),
@@ -153,6 +167,40 @@ int main(int argc, char *argv[]) {
     qInstallMessageHandler(myMessageOutput);
     QApplication a(argc, argv);
 
+    OkjTranslator translator;
+    QTranslator qtTranslator;
+    if (settings.language() == "ru") {
+        if (qtTranslator.load("qt_ru", QCoreApplication::applicationDirPath() + "/translations")) {
+            a.installTranslator(&qtTranslator);
+        }
+        if (translator.loadTs(":/translations/openkj_ru.ts")) {
+            a.installTranslator(&translator);
+            logger->info("Loaded Russian UI translation");
+        }
+    }
+
+#ifdef Q_OS_WIN
+    if (qgetenv("GST_PLUGIN_SYSTEM_PATH").isEmpty()) {
+        QString appDir = QCoreApplication::applicationDirPath();
+        QStringList candidateRoots = {
+            appDir,
+            "F:/Karaoke/deps/gstreamer/PFiles64/gstreamer/1.0/mingw_x86_64",
+            "C:/Program Files/gstreamer/1.0/mingw_x86_64"
+        };
+        for (const QString &root : candidateRoots) {
+            QString pluginPath = root + "/lib/gstreamer-1.0";
+            if (QDir(pluginPath).exists()) {
+                qputenv("GST_PLUGIN_SYSTEM_PATH", QDir::toNativeSeparators(pluginPath).toUtf8());
+                QString scannerPath = root + "/libexec/gstreamer-1.0/gst-plugin-scanner.exe";
+                if (QFileInfo::exists(scannerPath)) {
+                    qputenv("GST_PLUGIN_SCANNER", QDir::toNativeSeparators(scannerPath).toUtf8());
+                }
+                break;
+            }
+        }
+    }
+#endif
+
 #ifdef MAC_OVERRIDE_GST
     // This points GStreamer paths to the framework contained in the app bundle.  Not needed on brew installs.
     QString appDir = QCoreApplication::applicationDirPath();
@@ -209,22 +257,36 @@ int main(int argc, char *argv[]) {
     if (QCoreApplication::applicationDirPath() == "/app/bin") {
         logger->info("RunGuard disabled due to flatpak sandbox");
     } else {
-        logger->debug("Checking for other instances");
-        RunGuard guard("SharedMemorySingleInstanceProtectorOpenKJ");
-        if (!guard.tryToRun()) {
+#ifdef Q_OS_WIN
+        HANDLE hSingleInstanceMutex = CreateMutexW(NULL, TRUE, L"Local\\OpenKJ_SingleInstanceProtector");
+        if (hSingleInstanceMutex != NULL && GetLastError() == ERROR_ALREADY_EXISTS) {
+            CloseHandle(hSingleInstanceMutex);
             QMessageBox msgBox;
-            msgBox.setText("OpenKJ is already running!");
+            msgBox.setText(QCoreApplication::translate("main", "OpenKJ is already running!"));
             msgBox.setInformativeText(
-                    "In order to protect the database, you can only run one instance of OpenKJ at a time.\nExiting now.");
+                    QCoreApplication::translate("main", "In order to protect the database, you can only run one instance of OpenKJ at a time.\nExiting now."));
             msgBox.setIcon(QMessageBox::Critical);
             msgBox.exec();
             return 1;
         }
+#else
+        logger->debug("Checking for other instances");
+        RunGuard guard("SharedMemorySingleInstanceProtectorOpenKJ");
+        if (!guard.tryToRun()) {
+            QMessageBox msgBox;
+            msgBox.setText(QCoreApplication::translate("main", "OpenKJ is already running!"));
+            msgBox.setInformativeText(
+                    QCoreApplication::translate("main", "In order to protect the database, you can only run one instance of OpenKJ at a time.\nExiting now."));
+            msgBox.setIcon(QMessageBox::Critical);
+            msgBox.exec();
+            return 1;
+        }
+#endif
     }
     if (!settings.lastStartupOk()) {
         QMessageBox msgBox;
-        msgBox.setText("OpenKJ appears to have failed to startup on the last run.");
-        msgBox.setInformativeText("Would you like to attempt to recover by loading safe settings?");
+        msgBox.setText(QCoreApplication::translate("main", "OpenKJ appears to have failed to startup on the last run."));
+        msgBox.setInformativeText(QCoreApplication::translate("main", "Would you like to attempt to recover by loading safe settings?"));
         msgBox.setIcon(QMessageBox::Warning);
         msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
         msgBox.setDefaultButton(QMessageBox::Yes);

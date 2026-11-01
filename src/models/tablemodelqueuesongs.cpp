@@ -38,19 +38,19 @@ QVariant TableModelQueueSongs::headerData(int section, Qt::Orientation orientati
 QString TableModelQueueSongs::getColumnName(int section) {
     switch (section) {
         case COL_ID:
-            return "ID";
+            return tr("ID");
         case COL_DBSONGID:
-            return "DBSongId";
+            return tr("DBSongId");
         case COL_ARTIST:
-            return "Artist";
+            return tr("Artist");
         case COL_TITLE:
-            return "Title";
+            return tr("Title");
         case COL_SONGID:
-            return "SongID";
+            return tr("SongID");
         case COL_KEY:
-            return "Key";
+            return tr("Key");
         case COL_DURATION:
-            return "Time";
+            return tr("Time");
         default:
             return {};
     }

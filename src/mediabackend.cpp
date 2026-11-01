@@ -287,7 +287,7 @@ void MediaBackend::play()
     {
         gst_bin_add(reinterpret_cast<GstBin*>(m_pipeline), m_decoder);
         m_logger->info("{} Playing media file: {}", m_loggingPrefix, m_filename.toStdString());
-        auto uri = gst_filename_to_uri(m_filename.toLocal8Bit(), nullptr);
+        auto uri = gst_filename_to_uri(m_filename.toUtf8().constData(), nullptr);
         g_object_set(m_decoder, "uri", uri, nullptr);
         g_free(uri);
     }

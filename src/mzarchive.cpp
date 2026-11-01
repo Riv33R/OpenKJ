@@ -104,16 +104,28 @@ bool MzArchive::extractAudio(const QString& destPath, const QString& destFile)
         }
         mz_zip_archive archive;
         memset(&archive, 0, sizeof(archive));
-        //mz_zip_reader_init_file(&archive, archiveFile.toLocal8Bit(), 0);
         QFile zipFile(archiveFile);
-        zipFile.open(QIODevice::ReadOnly);
+        if (!zipFile.open(QIODevice::ReadOnly))
+            return false;
         QByteArray zipData = zipFile.readAll();
         zipFile.close();
-        mz_zip_reader_init_mem(&archive, zipData.data(), zipData.size(), 0);
-        if (mz_zip_reader_extract_to_file(&archive, m_audioFileIndex, QString(destPath + QDir::separator() + destFile).toLocal8Bit(),0))
+        if (!mz_zip_reader_init_mem(&archive, zipData.data(), zipData.size(), 0))
+            return false;
+        size_t extractedSize = 0;
+        void *pBuf = mz_zip_reader_extract_to_heap(&archive, m_audioFileIndex, &extractedSize, 0);
+        if (pBuf)
         {
+            QFile outFile(destPath + QDir::separator() + destFile);
+            bool written = false;
+            if (outFile.open(QIODevice::WriteOnly))
+            {
+                written = (outFile.write(static_cast<const char *>(pBuf), static_cast<qint64>(extractedSize)) == static_cast<qint64>(extractedSize));
+                outFile.close();
+            }
+            mz_free(pBuf);
             mz_zip_reader_end(&archive);
-            return true;
+            if (written)
+                return true;
         }
         else
         {
@@ -121,9 +133,9 @@ bool MzArchive::extractAudio(const QString& destPath, const QString& destFile)
             auto err = mz_zip_get_error_string(mz_zip_get_last_error(&archive));
             m_logger->warn("{} Unzip error: {}", m_loggingPrefix, err);
             mz_zip_reader_end(&archive);
-            m_logger->warn("{} Attempting to fall back to external infozip method", m_loggingPrefix);
-            return oka.extractAudio(destPath, destFile);
         }
+        m_logger->warn("{} Attempting to fall back to external infozip method", m_loggingPrefix);
+        return oka.extractAudio(destPath, destFile);
     }
     return false;
 }
@@ -141,14 +153,26 @@ bool MzArchive::extractCdg(const QString& destPath, const QString& destFile)
         mz_zip_archive archive;
         memset(&archive, 0, sizeof(archive));
         QFile zipFile(archiveFile);
-        zipFile.open(QIODevice::ReadOnly);
+        if (!zipFile.open(QIODevice::ReadOnly))
+            return false;
         QByteArray zipData = zipFile.readAll();
         zipFile.close();
-        mz_zip_reader_init_mem(&archive, zipData.data(), zipData.size(), 0);
-        if (mz_zip_reader_extract_to_file(&archive, m_cdgFileIndex, QString(destPath + QDir::separator() + destFile).toLocal8Bit(),0))
+        if (!mz_zip_reader_init_mem(&archive, zipData.data(), zipData.size(), 0))
+            return false;
+        size_t extractedSize = 0;
+        void *pBuf = mz_zip_reader_extract_to_heap(&archive, m_cdgFileIndex, &extractedSize, 0);
+        if (pBuf)
         {
+            QFile outFile(destPath + QDir::separator() + destFile);
+            bool written = false;
+            if (outFile.open(QIODevice::WriteOnly))
+            {
+                written = (outFile.write(static_cast<const char *>(pBuf), static_cast<qint64>(extractedSize)) == static_cast<qint64>(extractedSize));
+                outFile.close();
+            }
+            mz_free(pBuf);
             mz_zip_reader_end(&archive);
-            return true;
+            return written;
         }
         else
         {
