@@ -34,6 +34,7 @@
 #include "gstreamer/gstreamerhelper.h"
 #include <spdlog/async_logger.h>
 #include <QTextStream>
+#include <QStandardPaths>
 
 
 Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
@@ -105,11 +106,17 @@ void MediaBackend::writePipelineGraphToFile(GstBin *bin, const QString& filePath
 
     QStringList dotArguments { "-Tpng", "-o" + filenamePng, filenameDot };
     QProcess process;
+    QString dotExe = QStandardPaths::findExecutable("dot");
 #ifdef Q_OS_WIN
-    process.start(R"(C:\Program Files\Graphviz\bin\dot.exe)", dotArguments);
-#else
-    process.start("dot", dotArguments);
+    if (dotExe.isEmpty()) {
+        QString progFiles = QString::fromLocal8Bit(qgetenv("ProgramFiles"));
+        if (!progFiles.isEmpty() && QFile::exists(progFiles + "/Graphviz/bin/dot.exe")) {
+            dotExe = progFiles + "/Graphviz/bin/dot.exe";
+        }
+    }
 #endif
+    if (dotExe.isEmpty()) dotExe = "dot";
+    process.start(dotExe, dotArguments);
     process.waitForFinished();
     f.close();
     f.remove();

@@ -38,8 +38,13 @@
 #ifdef __MINGW32__
 #include <streambuf>
 struct OkjStreambufCompat {
+#if defined(__MINGW64__)
     std::streampos seekpos(std::streampos, std::ios_base::openmode)
         __asm__("_ZNSt15basic_streambufIcSt11char_traitsIcEE7seekposESt4fposIiESt13_Ios_Openmode");
+#else
+    std::streampos seekpos(std::streampos, std::ios_base::openmode)
+        __asm__("__ZNSt15basic_streambufIcSt11char_traitsIcEE7seekposESt4fposIiESt13_Ios_Openmode@12");
+#endif
 };
 __attribute__((used))
 std::streampos OkjStreambufCompat::seekpos(std::streampos, std::ios_base::openmode)
@@ -86,6 +91,24 @@ void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QS
 }
 
 int main(int argc, char *argv[]) {
+#ifdef Q_OS_WIN
+    // Prevent Windows from showing system error message boxes for missing/unsupported DLLs during dynamic plugin scanning
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+
+    // Ensure the application directory is first in DLL search path and PATH environment variable
+    // so any child processes (like gst-plugin-scanner.exe) and plugins find the local runtime DLLs.
+    wchar_t exePathBuf[MAX_PATH];
+    if (GetModuleFileNameW(NULL, exePathBuf, MAX_PATH) > 0) {
+        QString fullExePath = QString::fromWCharArray(exePathBuf);
+        QString nativeAppDir = QDir::toNativeSeparators(QFileInfo(fullExePath).absolutePath());
+        SetDllDirectoryW(reinterpret_cast<LPCWSTR>(nativeAppDir.utf16()));
+        QString currentPath = QString::fromLocal8Bit(qgetenv("PATH"));
+        if (!currentPath.startsWith(nativeAppDir, Qt::CaseInsensitive)) {
+            QString newPath = nativeAppDir + ";" + currentPath;
+            qputenv("PATH", newPath.toLocal8Bit());
+        }
+    }
+#endif
     QString logDir = settings.logDir();
     QDir dir;
     QString logFilePath;
@@ -182,17 +205,53 @@ int main(int argc, char *argv[]) {
 #ifdef Q_OS_WIN
     if (qgetenv("GST_PLUGIN_SYSTEM_PATH").isEmpty()) {
         QString appDir = QCoreApplication::applicationDirPath();
-        QStringList candidateRoots = {
-            appDir,
-            "F:/Karaoke/deps/gstreamer/PFiles64/gstreamer/1.0/mingw_x86_64",
-            "C:/Program Files/gstreamer/1.0/mingw_x86_64"
-        };
+        QStringList candidateRoots;
+        // Priority 1: Portable bundled GStreamer inside application directory
+        candidateRoots << appDir;
+
+        // Priority 2: Standard GStreamer environment variables
+#if QT_POINTER_SIZE == 4
+        QString gstEnv = QString::fromLocal8Bit(qgetenv("GSTREAMER_1_0_ROOT_MINGW_X86"));
+        if (!gstEnv.isEmpty()) candidateRoots << gstEnv;
+        gstEnv = QString::fromLocal8Bit(qgetenv("GSTREAMER_1_0_ROOT_X86"));
+        if (!gstEnv.isEmpty()) candidateRoots << gstEnv;
+#else
+        QString gstEnv = QString::fromLocal8Bit(qgetenv("GSTREAMER_1_0_ROOT_MINGW_X86_64"));
+        if (!gstEnv.isEmpty()) candidateRoots << gstEnv;
+        gstEnv = QString::fromLocal8Bit(qgetenv("GSTREAMER_1_0_ROOT_X86_64"));
+        if (!gstEnv.isEmpty()) candidateRoots << gstEnv;
+#endif
+
+        // Priority 3: Dynamic ProgramFiles detection without hardcoded drive letters
+        QString progFiles = QString::fromLocal8Bit(qgetenv("ProgramFiles"));
+        QString progFilesX86 = QString::fromLocal8Bit(qgetenv("ProgramFiles(x86)"));
+        QString sysDrive = QString::fromLocal8Bit(qgetenv("SystemDrive"));
+        if (sysDrive.isEmpty()) sysDrive = "C:";
+
+#if QT_POINTER_SIZE == 4
+        if (!progFilesX86.isEmpty()) {
+            candidateRoots << progFilesX86 + "/gstreamer/1.0/mingw_x86";
+        }
+        if (!progFiles.isEmpty()) {
+            candidateRoots << progFiles + "/gstreamer/1.0/mingw_x86";
+        }
+        candidateRoots << sysDrive + "/gstreamer/1.0/mingw_x86";
+#else
+        if (!progFiles.isEmpty()) {
+            candidateRoots << progFiles + "/gstreamer/1.0/mingw_x86_64";
+        }
+        candidateRoots << sysDrive + "/gstreamer/1.0/mingw_x86_64";
+#endif
+
         for (const QString &root : candidateRoots) {
             QString pluginPath = root + "/lib/gstreamer-1.0";
             if (QDir(pluginPath).exists()) {
                 qputenv("GST_PLUGIN_SYSTEM_PATH", QDir::toNativeSeparators(pluginPath).toUtf8());
+                QString localScanner = root + "/gst-plugin-scanner.exe";
                 QString scannerPath = root + "/libexec/gstreamer-1.0/gst-plugin-scanner.exe";
-                if (QFileInfo::exists(scannerPath)) {
+                if (QFileInfo::exists(localScanner)) {
+                    qputenv("GST_PLUGIN_SCANNER", QDir::toNativeSeparators(localScanner).toUtf8());
+                } else if (QFileInfo::exists(scannerPath)) {
                     qputenv("GST_PLUGIN_SCANNER", QDir::toNativeSeparators(scannerPath).toUtf8());
                 }
                 break;
