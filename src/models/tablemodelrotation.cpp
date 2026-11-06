@@ -78,7 +78,7 @@ int TableModelRotation::columnCount([[maybe_unused]]const QModelIndex &parent) c
 }
 
 QVariant TableModelRotation::data(const QModelIndex &index, int role) const {
-    if (!index.isValid())
+    if (!index.isValid() || index.row() < 0 || static_cast<size_t>(index.row()) >= m_singers.size())
         return {};
     switch (role) {
         case Qt::FontRole:
@@ -310,7 +310,7 @@ int TableModelRotation::singerAdd(const QString &name, const int positionHint) {
             break;
         }
         case ADD_NEXT:
-            if (curSingerPos != m_singers.size() - 2) {
+            if (curSingerPos >= 0 && curSingerPos != static_cast<int>(m_singers.size()) - 2) {
                 singerMove(addPos, curSingerPos + 1);
                 singerMoved = true;
             }
@@ -457,6 +457,8 @@ void TableModelRotation::singerSetRegular(const int singerId, const bool isRegul
     auto it = std::find_if(m_singers.begin(), m_singers.end(), [&singerId](okj::RotationSinger &singer) {
         return (singerId == singer.id);
     });
+    if (it == m_singers.end())
+        return;
     it->regular = isRegular;
     emit dataChanged(this->index(it->position, COL_REGULAR), this->index(it->position, COL_REGULAR),
                      QVector<int>{Qt::DisplayRole});
@@ -773,7 +775,7 @@ void TableModelRotation::setRotationTopSingerId(const int id) {
 }
 
 const okj::RotationSinger &TableModelRotation::getSingerAtPosition(int position) const {
-    if (position < 0 || position > m_singers.size() - 1)
+    if (m_singers.empty() || position < 0 || static_cast<size_t>(position) >= m_singers.size())
         return InvalidSinger;
     return m_singers.at(position);
 }
@@ -810,7 +812,7 @@ int TableModelRotation::positionTurnDistance(int position) const {
 }
 
 int TableModelRotation::positionWaitTime(int position) const {
-    if (position < 0 || position > m_singers.size() - 1)
+    if (m_singers.empty() || position < 0 || static_cast<size_t>(position) >= m_singers.size())
         return 0;
 
     const auto &curSinger = getSinger(m_currentSingerId);

@@ -90,7 +90,7 @@ int TableModelKaraokeSongs::columnCount([[maybe_unused]]const QModelIndex &paren
 }
 
 QVariant TableModelKaraokeSongs::data(const QModelIndex &index, int role) const {
-    if (!index.isValid())
+    if (!index.isValid() || index.row() < 0 || static_cast<size_t>(index.row()) >= m_filteredSongs.size())
         return {};
     switch (role) {
         case Qt::FontRole:
@@ -114,6 +114,8 @@ QVariant TableModelKaraokeSongs::data(const QModelIndex &index, int role) const 
 }
 
 QVariant TableModelKaraokeSongs::getColumnDecorationRole(const QModelIndex &index) const {
+    if (index.row() < 0 || static_cast<size_t>(index.row()) >= m_filteredSongs.size())
+        return {};
     switch (index.column()) {
         case COL_SONGID:
             if (m_filteredSongs.at(index.row())->path.endsWith("cdg", Qt::CaseInsensitive))
@@ -139,6 +141,8 @@ QVariant TableModelKaraokeSongs::getColumnTextAlignmentHint(int column) {
 }
 
 QVariant TableModelKaraokeSongs::getItemDisplayData(const QModelIndex &index) const {
+    if (index.row() < 0 || static_cast<size_t>(index.row()) >= m_filteredSongs.size())
+        return {};
     switch (index.column()) {
         case COL_ID:
             return m_filteredSongs.at(index.row())->id;
@@ -284,6 +288,8 @@ QString TableModelKaraokeSongs::getPath(const int songId) {
     auto it = std::find_if(m_allSongs.begin(), m_allSongs.end(), [&songId](const std::shared_ptr<okj::KaraokeSong> &song) {
         return (song->id == songId);
     });
+    if (it == m_allSongs.end())
+        return {};
     return it->get()->path;
 }
 
@@ -318,9 +324,12 @@ void TableModelKaraokeSongs::updateSongHistory(const int songId) {
 }
 
 okj::KaraokeSong &TableModelKaraokeSongs::getSong(const int songId) {
+    static okj::KaraokeSong emptySong{};
     auto it = std::find_if(m_allSongs.begin(), m_allSongs.end(), [&songId](const std::shared_ptr<okj::KaraokeSong> &song) {
         return (song->id == songId);
     });
+    if (it == m_allSongs.end())
+        return emptySong;
     return **it;
 }
 

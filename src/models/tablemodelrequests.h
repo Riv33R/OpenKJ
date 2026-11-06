@@ -81,7 +81,7 @@ public:
     [[nodiscard]] QVariant data(const QModelIndex &index, int role) const override;
     [[nodiscard]] QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
     [[nodiscard]] Qt::ItemFlags flags(const QModelIndex &index) const override;
-    QList<Request> requests() {return m_requests; }
+    [[nodiscard]] const QList<Request> &requests() const { return m_requests; }
 
 private slots:
     void requestsChanged(const OkjsRequests& requests);

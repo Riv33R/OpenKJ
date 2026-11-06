@@ -48,6 +48,7 @@ public:
     void loadData();
     void sort(int column, Qt::SortOrder order) override;
     void search(const QString &searchString);
+    void searchExec();
     void setSearchType(SearchType type);
     int getIdForPath(const QString &path);
     QString getPath(int songId);
@@ -77,7 +78,6 @@ private:
     QFontMetrics m_itemFontMetrics{m_settings.applicationFont()};
     QTimer searchTimer{this};
 
-    void searchExec();
     static QVariant getColumnName(int section) ;
     [[nodiscard]] QVariant getColumnSizeHint(int section) const;
     [[nodiscard]] QVariant getItemDisplayData(const QModelIndex &index) const;

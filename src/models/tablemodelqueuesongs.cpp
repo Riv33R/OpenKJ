@@ -65,7 +65,7 @@ int TableModelQueueSongs::columnCount([[maybe_unused]]const QModelIndex &parent)
 }
 
 QVariant TableModelQueueSongs::data(const QModelIndex &index, int role) const {
-    if (!index.isValid())
+    if (!index.isValid() || index.row() < 0 || static_cast<size_t>(index.row()) >= m_songs.size())
         return {};
     switch (role) {
         case Qt::FontRole:
@@ -334,7 +334,7 @@ void TableModelQueueSongs::commitChanges() {
     query.bindValue(":singerId", m_curSingerId);
     query.exec();
     query.prepare("INSERT INTO queuesongs (qsongid,singer,song,artist,title,discid,path,keychg,played,position) "
-                  "VALUES(:id,:singerId,:songId,:songId,:songId,:songId,:songId,:key,:played,:position)");
+                  "VALUES(:id,:singerId,:songId,:songId,:songId,:songId,:key,:played,:position)");
     std::for_each(m_songs.begin(), m_songs.end(), [&](okj::QueueSong &song) {
         query.bindValue(":id", song.id);
         query.bindValue(":singerId", song.singerId);
@@ -353,7 +353,6 @@ void TableModelQueueSongs::songAddSlot(int songId, int singerId, int keyChg) {
         setKey(queueSongId, keyChg);
     } else {
         int newPos{0};
-        okj::KaraokeSong ksong = m_karaokeSongsModel.getSong(songId);
         QSqlQuery query;
         query.prepare("SELECT COUNT(qsongid) FROM queuesongs WHERE singer = :singerId");
         query.bindValue(":singerId", singerId);
@@ -372,6 +371,7 @@ void TableModelQueueSongs::songAddSlot(int songId, int singerId, int keyChg) {
         query.exec();
         if (auto error = query.lastError(); error.type() != QSqlError::NoError)
             m_logger->error("{} DB error: {}", m_loggingPrefix, error.text());
+        emit queueModified(singerId);
     }
 }
 

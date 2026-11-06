@@ -408,16 +408,16 @@ void OKJSongbookAPI::processHttpRequest(QTcpSocket *socket, const QByteArray &ra
                        m_loggingPrefix, newReq.requestId, finalSingerName.toStdString(),
                        micCount, artist.toStdString(), title.toStdString(), keyChg);
 
-        emit requestsChanged(requests);
-        emit synchronized(lastSync);
-        emit localRequestSubmitted(newReq);
-
         QJsonObject ok{
             {"error", false},
             {"requestId", newReq.requestId},
             {"message", QString("Заказ принят! (%1 — %2, микрофонов: %3)").arg(artist, title).arg(micCount)}
         };
         sendHttpResponse(socket, 200, "OK", "application/json; charset=utf-8", QJsonDocument(ok).toJson(QJsonDocument::Compact));
+
+        emit requestsChanged(requests);
+        emit synchronized(lastSync);
+        emit localRequestSubmitted(newReq);
         return;
     }
 
