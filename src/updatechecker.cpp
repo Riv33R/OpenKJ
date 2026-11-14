@@ -13,12 +13,24 @@
 #include <QMessageBox>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QPointer>
 #include <QProcess>
 #include <QProgressDialog>
 #include <QStandardPaths>
 #include <QUrl>
 #include <QVersionNumber>
+#include <QtConcurrent/QtConcurrentRun>
+#include <atomic>
+#include <memory>
 #include <spdlog/spdlog.h>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <winhttp.h>
+#ifndef WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY
+#define WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY 4
+#endif
+#endif
 
 namespace {
 
@@ -38,6 +50,196 @@ QString normalizeVersion(QString v)
         v.remove(0, 1);
     return v;
 }
+
+#ifdef Q_OS_WIN
+struct WinHttpHandle
+{
+    HINTERNET h{nullptr};
+    explicit WinHttpHandle(HINTERNET handle = nullptr) : h(handle) {}
+    ~WinHttpHandle()
+    {
+        if (h)
+            WinHttpCloseHandle(h);
+    }
+    WinHttpHandle(const WinHttpHandle &) = delete;
+    WinHttpHandle &operator=(const WinHttpHandle &) = delete;
+    operator HINTERNET() const { return h; }
+};
+
+QString winHttpErrorString(DWORD err)
+{
+    LPWSTR buf = nullptr;
+    DWORD len = FormatMessageW(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+            GetModuleHandleW(L"winhttp.dll"),
+            err,
+            0,
+            reinterpret_cast<LPWSTR>(&buf),
+            0,
+            nullptr);
+    QString msg = (len > 0 && buf) ? QString::fromWCharArray(buf, static_cast<int>(len)).trimmed()
+                                   : QString("WinHTTP error %1").arg(err);
+    if (buf)
+        LocalFree(buf);
+    return msg;
+}
+
+bool winHttpOpenGetRequest(const QString &urlStr,
+                           WinHttpHandle &hSession,
+                           WinHttpHandle &hConnect,
+                           WinHttpHandle &hRequest,
+                           DWORD &statusCode,
+                           qint64 &contentLength,
+                           QString &errorOut)
+{
+    const std::wstring wUrl = urlStr.toStdWString();
+    URL_COMPONENTS urlComp{};
+    urlComp.dwStructSize = sizeof(urlComp);
+    wchar_t hostBuf[512]{};
+    wchar_t pathBuf[2048]{};
+    urlComp.lpszHostName = hostBuf;
+    urlComp.dwHostNameLength = _countof(hostBuf);
+    urlComp.lpszUrlPath = pathBuf;
+    urlComp.dwUrlPathLength = _countof(pathBuf);
+
+    if (!WinHttpCrackUrl(wUrl.c_str(), 0, 0, &urlComp)) {
+        errorOut = QString("Некорректный URL: %1").arg(urlStr);
+        return false;
+    }
+
+    const std::wstring ua = QString("OpenKJ-Updater/%1").arg(OKJ_VERSION_STRING).toStdWString();
+    hSession.h = WinHttpOpen(ua.c_str(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
+                             WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    if (!hSession.h) {
+        hSession.h = WinHttpOpen(ua.c_str(), WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+                                 WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    }
+    if (!hSession.h) {
+        errorOut = winHttpErrorString(GetLastError());
+        return false;
+    }
+
+    WinHttpSetTimeouts(hSession.h, 10000, 10000, 15000, 30000);
+
+    hConnect.h = WinHttpConnect(hSession.h, hostBuf, urlComp.nPort, 0);
+    if (!hConnect.h) {
+        errorOut = winHttpErrorString(GetLastError());
+        return false;
+    }
+
+    const DWORD flags = (urlComp.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
+    const wchar_t *pathPtr = (pathBuf[0] != L'\0') ? pathBuf : L"/";
+    hRequest.h = WinHttpOpenRequest(hConnect.h, L"GET", pathPtr, nullptr,
+                                    WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
+    if (!hRequest.h) {
+        errorOut = winHttpErrorString(GetLastError());
+        return false;
+    }
+
+    WinHttpAddRequestHeaders(hRequest.h, L"Accept: application/vnd.github+json\r\n", -1L, WINHTTP_ADDREQ_FLAG_ADD);
+
+    if (!WinHttpSendRequest(hRequest.h, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+                            WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
+        !WinHttpReceiveResponse(hRequest.h, nullptr)) {
+        errorOut = winHttpErrorString(GetLastError());
+        return false;
+    }
+
+    DWORD statusSize = sizeof(statusCode);
+    if (!WinHttpQueryHeaders(hRequest.h, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                             WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusSize, WINHTTP_NO_HEADER_INDEX)) {
+        errorOut = winHttpErrorString(GetLastError());
+        return false;
+    }
+
+    if (statusCode < 200 || statusCode >= 300) {
+        errorOut = QString("HTTP %1").arg(statusCode);
+        return false;
+    }
+
+    wchar_t lenBuf[64]{};
+    DWORD lenBufSize = sizeof(lenBuf);
+    contentLength = -1;
+    if (WinHttpQueryHeaders(hRequest.h, WINHTTP_QUERY_CONTENT_LENGTH,
+                            WINHTTP_HEADER_NAME_BY_INDEX, lenBuf, &lenBufSize, WINHTTP_NO_HEADER_INDEX)) {
+        bool ok = false;
+        qint64 parsed = QString::fromWCharArray(lenBuf).toLongLong(&ok);
+        if (ok && parsed > 0)
+            contentLength = parsed;
+    }
+    return true;
+}
+
+bool winHttpGetBytes(const QString &urlStr, QByteArray &outBytes, QString &errorOut)
+{
+    WinHttpHandle hSession, hConnect, hRequest;
+    DWORD statusCode = 0;
+    qint64 contentLength = -1;
+    if (!winHttpOpenGetRequest(urlStr, hSession, hConnect, hRequest, statusCode, contentLength, errorOut))
+        return false;
+
+    QByteArray buffer;
+    DWORD avail = 0;
+    while (WinHttpQueryDataAvailable(hRequest.h, &avail) && avail > 0) {
+        QByteArray chunk(static_cast<int>(avail), Qt::Uninitialized);
+        DWORD readBytes = 0;
+        if (!WinHttpReadData(hRequest.h, chunk.data(), avail, &readBytes)) {
+            errorOut = winHttpErrorString(GetLastError());
+            return false;
+        }
+        buffer.append(chunk.constData(), static_cast<int>(readBytes));
+    }
+    outBytes = buffer;
+    return true;
+}
+
+template <typename ProgressFn>
+bool winHttpDownloadFile(const QString &urlStr,
+                         const QString &destPath,
+                         const std::shared_ptr<std::atomic_bool> &cancelled,
+                         ProgressFn onProgress,
+                         QString &errorOut)
+{
+    WinHttpHandle hSession, hConnect, hRequest;
+    DWORD statusCode = 0;
+    qint64 contentLength = -1;
+    if (!winHttpOpenGetRequest(urlStr, hSession, hConnect, hRequest, statusCode, contentLength, errorOut))
+        return false;
+
+    QFile file(destPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        errorOut = QString("Не удалось создать файл:\n%1").arg(destPath);
+        return false;
+    }
+
+    qint64 received = 0;
+    DWORD avail = 0;
+    while (WinHttpQueryDataAvailable(hRequest.h, &avail) && avail > 0) {
+        if (cancelled && cancelled->load()) {
+            file.close();
+            QFile::remove(destPath);
+            errorOut = "CANCELLED";
+            return false;
+        }
+        QByteArray chunk(static_cast<int>(avail), Qt::Uninitialized);
+        DWORD readBytes = 0;
+        if (!WinHttpReadData(hRequest.h, chunk.data(), avail, &readBytes)) {
+            file.close();
+            QFile::remove(destPath);
+            errorOut = winHttpErrorString(GetLastError());
+            return false;
+        }
+        if (readBytes > 0) {
+            file.write(chunk.constData(), static_cast<qint64>(readBytes));
+            received += static_cast<qint64>(readBytes);
+            onProgress(received, contentLength);
+        }
+    }
+    file.flush();
+    file.close();
+    return true;
+}
+#endif
 
 } // namespace
 
@@ -146,6 +348,52 @@ void UpdateChecker::checkForUpdates(bool interactive)
     }
 
     m_checkInProgress = true;
+
+#ifdef Q_OS_WIN
+    QPointer<UpdateChecker> self(this);
+    QtConcurrent::run([self, manifestUrl, interactive]() {
+        QByteArray payload;
+        QString err;
+        const bool ok = winHttpGetBytes(manifestUrl, payload, err);
+        if (!self)
+            return;
+        QMetaObject::invokeMethod(self.data(), [self, ok, payload, err, interactive]() {
+            if (!self)
+                return;
+            self->m_checkInProgress = false;
+            if (!ok) {
+                if (auto log = spdlog::get("logger"))
+                    log->warn("[Updater] Update check failed: {}", err.toStdString());
+                if (interactive) {
+                    QMessageBox::warning(self->m_parentWidget, tr("Проверка обновлений"),
+                                         tr("Не удалось проверить обновления:\n%1").arg(err));
+                }
+                emit self->checkFinished(false, err);
+                return;
+            }
+            const UpdateInfo info = parseUpdatePayload(payload, is64BitBuild());
+            if (!info.isValid()) {
+                if (interactive) {
+                    QMessageBox::warning(self->m_parentWidget, tr("Проверка обновлений"),
+                                         tr("Сервер вернул некорректную информацию о версии."));
+                }
+                emit self->checkFinished(false, tr("Некорректный формат ответа сервера"));
+                return;
+            }
+            if (!isNewerVersion(info.version, OKJ_VERSION_STRING)) {
+                if (interactive) {
+                    QMessageBox::information(self->m_parentWidget, tr("Проверка обновлений"),
+                                             tr("У вас установлена актуальная версия OpenKJ (%1).").arg(OKJ_VERSION_STRING));
+                }
+                emit self->checkFinished(false, QString());
+                return;
+            }
+            emit self->newVersionAvailable(info.version);
+            emit self->checkFinished(true, QString());
+            self->promptAndUpdate(info);
+        }, Qt::QueuedConnection);
+    });
+#else
     QNetworkRequest req{QUrl(manifestUrl)};
     req.setHeader(QNetworkRequest::UserAgentHeader, QString("OpenKJ-Updater/%1").arg(OKJ_VERSION_STRING));
     req.setRawHeader("Accept", "application/vnd.github+json");
@@ -157,6 +405,7 @@ void UpdateChecker::checkForUpdates(bool interactive)
         handleManifestReply(reply, interactive);
         reply->deleteLater();
     });
+#endif
 }
 
 void UpdateChecker::handleManifestReply(QNetworkReply *reply, bool interactive)
@@ -257,8 +506,84 @@ void UpdateChecker::downloadFile(const QString &url,
                                  const QString &progressTitle,
                                  bool runSilentInstaller)
 {
+    auto *progress = new QProgressDialog(progressTitle, tr("Отмена"), 0, 100, m_parentWidget);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setValue(0);
+
+#ifdef Q_OS_WIN
+    auto cancelled = std::make_shared<std::atomic_bool>(false);
+    connect(progress, &QProgressDialog::canceled, this, [cancelled]() {
+        cancelled->store(true);
+    });
+
+    QPointer<UpdateChecker> self(this);
+    QPointer<QProgressDialog> progPtr(progress);
+    QtConcurrent::run([self, progPtr, url, destPath, expectedSha256, runSilentInstaller, cancelled]() {
+        QString err;
+        const bool ok = winHttpDownloadFile(
+                url,
+                destPath,
+                cancelled,
+                [progPtr](qint64 received, qint64 total) {
+                    if (!progPtr)
+                        return;
+                    QMetaObject::invokeMethod(progPtr.data(), [progPtr, received, total]() {
+                        if (!progPtr)
+                            return;
+                        if (total > 0) {
+                            progPtr->setMaximum(100);
+                            progPtr->setValue(static_cast<int>((received * 100) / total));
+                        } else {
+                            progPtr->setMaximum(0);
+                        }
+                    }, Qt::QueuedConnection);
+                },
+                err);
+
+        if (!self)
+            return;
+        QMetaObject::invokeMethod(self.data(), [self, progPtr, ok, err, destPath, expectedSha256, runSilentInstaller]() {
+            if (progPtr) {
+                progPtr->close();
+                progPtr->deleteLater();
+            }
+            if (!self)
+                return;
+            if (!ok) {
+                if (err != "CANCELLED") {
+                    QMessageBox::warning(self->m_parentWidget, tr("Ошибка загрузки"),
+                                         tr("Не удалось скачать обновление:\n%1").arg(err));
+                }
+                return;
+            }
+            if (!verifyFileSha256(destPath, expectedSha256)) {
+                QFile::remove(destPath);
+                QMessageBox::critical(self->m_parentWidget, tr("Ошибка проверки"),
+                                      tr("Контрольная сумма SHA-256 загруженного файла не совпадает. Установка отменена."));
+                return;
+            }
+            if (runSilentInstaller) {
+                const QStringList args{"/SILENT", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS"};
+                if (!QProcess::startDetached(destPath, args)) {
+                    QMessageBox::warning(self->m_parentWidget, tr("Ошибка запуска"),
+                                         tr("Не удалось запустить установщик:\n%1").arg(destPath));
+                    return;
+                }
+                QApplication::quit();
+            } else {
+                QMessageBox::information(self->m_parentWidget, tr("Загрузка завершена"),
+                                         tr("Архив с новой версией сохранён:\n%1\n\nРаспакуйте его с заменой файлов после закрытия программы.")
+                                                 .arg(QDir::toNativeSeparators(destPath)));
+                QProcess::startDetached("explorer.exe", {"/select," + QDir::toNativeSeparators(destPath)});
+            }
+        }, Qt::QueuedConnection);
+    });
+#else
     auto *file = new QFile(destPath);
     if (!file->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        progress->close();
+        progress->deleteLater();
         QMessageBox::warning(m_parentWidget, tr("Ошибка обновления"),
                              tr("Не удалось создать файл для записи:\n%1").arg(destPath));
         delete file;
@@ -270,11 +595,6 @@ void UpdateChecker::downloadFile(const QString &url,
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
 
     QNetworkReply *reply = m_manager->get(req);
-    auto *progress = new QProgressDialog(progressTitle, tr("Отмена"), 0, 100, m_parentWidget);
-    progress->setWindowModality(Qt::WindowModal);
-    progress->setMinimumDuration(0);
-    progress->setValue(0);
-
     connect(progress, &QProgressDialog::canceled, reply, &QNetworkReply::abort);
 
     connect(reply, &QNetworkReply::readyRead, this, [reply, file]() {
@@ -287,7 +607,7 @@ void UpdateChecker::downloadFile(const QString &url,
             progress->setMaximum(100);
             progress->setValue(static_cast<int>((received * 100) / total));
         } else {
-            progress->setMaximum(0); // indeterminate
+            progress->setMaximum(0);
         }
     });
 
@@ -337,4 +657,5 @@ void UpdateChecker::downloadFile(const QString &url,
             QProcess::startDetached("explorer.exe", {"/select," + QDir::toNativeSeparators(destPath)});
         }
     });
+#endif
 }

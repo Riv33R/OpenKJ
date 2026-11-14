@@ -752,7 +752,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
             ${SOURCE_FILES}
             ${WINDOWS_ICON_RC}
             )
-    target_link_libraries(openkj PRIVATE ${LIBRARIES})
+    target_link_libraries(openkj PRIVATE ${LIBRARIES} winhttp)
     set_property(
             TARGET openkj
             PROPERTY WIN32_EXECUTABLE true
@@ -767,7 +767,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
                 tests/openkj_tests.cpp
                 ${TEST_SOURCE_FILES}
                 )
-        target_link_libraries(openkj_tests PRIVATE ${LIBRARIES} Qt${QT_VERSION_MAJOR}::Test)
+        target_link_libraries(openkj_tests PRIVATE ${LIBRARIES} Qt${QT_VERSION_MAJOR}::Test winhttp)
         add_test(NAME openkj_tests COMMAND openkj_tests)
     endif ()
 
