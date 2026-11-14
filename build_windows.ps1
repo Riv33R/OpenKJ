@@ -309,7 +309,8 @@ start "" "%APP_DIR%openkj.exe" %*
     if (Test-Path $DeployDir) { Remove-Item $DeployDir -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $DeployDir | Out-Null
 
-    Get-ChildItem -Path $BuildDir -File | Where-Object { $_.Extension -in '.exe', '.dll', '.bat', '.conf' -and $_.Name -ne 'openkj_tests.exe' } | Copy-Item -Destination $DeployDir -Force
+    Copy-Item -Path (Join-Path $ProjectRoot "OPERATOR_GUIDE.md") -Destination $BuildDir -Force
+    Get-ChildItem -Path $BuildDir -File | Where-Object { $_.Extension -in '.exe', '.dll', '.bat', '.conf', '.md' -and $_.Name -ne 'openkj_tests.exe' } | Copy-Item -Destination $DeployDir -Force
     foreach ($sub in @('lib', 'libexec', 'platforms', 'sqldrivers', 'imageformats', 'iconengines', 'styles', 'bearer', 'translations')) {
         $srcSub = Join-Path $BuildDir $sub
         if (Test-Path $srcSub) {
