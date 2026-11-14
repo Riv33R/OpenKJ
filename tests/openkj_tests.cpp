@@ -30,6 +30,7 @@
 #include "okjtranslator.h"
 #include "mediabackend.h"
 #include "settings.h"
+#include "updatechecker.h"
 #include "models/tablemodelkaraokesongs.h"
 #include "models/tablemodelrotation.h"
 #include "models/tablemodelqueuesongs.h"
@@ -371,6 +372,47 @@ private slots:
             }
         }
         QVERIFY(hasQrNote);
+    }
+
+    void testUpdateCheckerManifestAndHash()
+    {
+        QVERIFY(UpdateChecker::isNewerVersion("2.1.40", "2.1.39"));
+        QVERIFY(UpdateChecker::isNewerVersion("v2.2.0", "2.1.39"));
+        QVERIFY(!UpdateChecker::isNewerVersion("2.1.39", "2.1.39"));
+        QVERIFY(!UpdateChecker::isNewerVersion("2.1.38", "2.1.39"));
+
+        // 1. GitHub Releases API JSON parsing
+        const QByteArray ghJson =
+            "{"
+            "\"tag_name\": \"v2.1.40\","
+            "\"body\": \"Bug fixes and improvements\","
+            "\"html_url\": \"https://github.com/Riv33R/OpenKJ/releases/tag/v2.1.40\","
+            "\"assets\": ["
+            "{\"name\": \"OpenKJ-2.1.40-x64-setup.exe\", \"browser_download_url\": \"https://example.com/OpenKJ-2.1.40-x64-setup.exe\"},"
+            "{\"name\": \"OpenKJ-2.1.40-x64-portable.zip\", \"browser_download_url\": \"https://example.com/OpenKJ-2.1.40-x64-portable.zip\"},"
+            "{\"name\": \"OpenKJ-2.1.40-x86-setup.exe\", \"browser_download_url\": \"https://example.com/OpenKJ-2.1.40-x86-setup.exe\"},"
+            "{\"name\": \"OpenKJ-2.1.40-x86-portable.zip\", \"browser_download_url\": \"https://example.com/OpenKJ-2.1.40-x86-portable.zip\"}"
+            "]"
+            "}";
+        UpdateInfo gh64 = UpdateChecker::parseUpdatePayload(ghJson, true);
+        QCOMPARE(gh64.version, QString("2.1.40"));
+        QCOMPARE(gh64.installerUrl, QString("https://example.com/OpenKJ-2.1.40-x64-setup.exe"));
+        QCOMPARE(gh64.portableUrl, QString("https://example.com/OpenKJ-2.1.40-x64-portable.zip"));
+
+        UpdateInfo gh86 = UpdateChecker::parseUpdatePayload(ghJson, false);
+        QCOMPARE(gh86.installerUrl, QString("https://example.com/OpenKJ-2.1.40-x86-setup.exe"));
+        QCOMPARE(gh86.portableUrl, QString("https://example.com/OpenKJ-2.1.40-x86-portable.zip"));
+
+        // 2. SHA-256 verification
+        const QString testBin = m_tempDir.filePath("update_payload.bin");
+        {
+            QFile f(testBin);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("OpenKJ-Update-Test");
+        }
+        const QByteArray expectedSha = QCryptographicHash::hash("OpenKJ-Update-Test", QCryptographicHash::Sha256).toHex();
+        QVERIFY(UpdateChecker::verifyFileSha256(testBin, QString::fromLatin1(expectedSha)));
+        QVERIFY(!UpdateChecker::verifyFileSha256(testBin, "0000000000000000000000000000000000000000000000000000000000000000"));
     }
 };
 

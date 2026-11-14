@@ -1128,6 +1128,14 @@ void MainWindow::setupConnections() {
     connect(ui->comboBoxSearchType, qOverload<int>(&QComboBox::currentIndexChanged), this,
             &MainWindow::comboBoxSearchTypeIndexChanged);
     connect(ui->actionDocumentation, &QAction::triggered, this, &MainWindow::actionDocumentation);
+    m_updateChecker = std::make_unique<UpdateChecker>(this);
+    connect(ui->actionCheck_Updates, &QAction::triggered, this, [this]() {
+        m_updateChecker->checkForUpdates(true);
+    });
+    QTimer::singleShot(3000, this, [this]() {
+        if (!m_shuttingDown)
+            m_updateChecker->checkForUpdates(false);
+    });
     connect(ui->btnToggleCdgWindow, &QPushButton::toggled, cdgWindow.get(), &DlgCdg::setVisible);
     connect(ui->tableViewBmPlaylist, &QTableView::customContextMenuRequested, this,
             &MainWindow::tableViewBmPlaylistContextMenu);

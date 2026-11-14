@@ -500,6 +500,8 @@ set(SOURCE_FILES
         src/idledetect.cpp
         src/okjtranslator.cpp
         src/okjtranslator.h
+        src/updatechecker.cpp
+        src/updatechecker.h
         src/mainwindow.h
         src/dlgaddsong.h
         src/dlgvideopreview.h

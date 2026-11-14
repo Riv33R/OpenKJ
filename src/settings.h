@@ -256,6 +256,7 @@ public:
     bool requestRemoveOnRotAdd();
     bool requestDialogAutoShow();
     bool checkUpdates();
+    QString updateManifestUrl();
     int updatesBranch();
     [[nodiscard]] int theme() const;
     [[nodiscard]] QString language() const;
@@ -373,6 +374,7 @@ public slots:
     void setRequestRemoveOnRotAdd(bool remove);
     void setRequestDialogAutoShow(bool enabled);
     void setCheckUpdates(bool enabled);
+    void setUpdateManifestUrl(const QString &url);
     void setUpdatesBranch(int index);
     void setTheme(int theme);
     void setLanguage(const QString &language);

@@ -33,6 +33,7 @@
 #include "dlgsettings.h"
 #include "mediabackend.h"
 #include "dlgcdg.h"
+#include "updatechecker.h"
 #include "settings.h"
 #include "dlgregularsingers.h"
 #include "dlgregularexport.h"
@@ -153,6 +154,7 @@ private:
     std::unique_ptr<LazyDurationUpdateController> m_lazyDurationUpdater;
     std::unique_ptr<QTemporaryDir> m_mediaTempDir;
     OKJSongbookAPI m_songbookApi;
+    std::unique_ptr<UpdateChecker> m_updateChecker;
     QWidget *m_historyTabWidget;
     std::mt19937_64 rng;
     int m_bmSavedSongIndex{-1};

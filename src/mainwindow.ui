@@ -3425,6 +3425,7 @@ QPushButton:default {
     </property>
     <addaction name="actionAbout"/>
     <addaction name="actionDocumentation"/>
+    <addaction name="actionCheck_Updates"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -3665,6 +3666,11 @@ QPushButton:default {
   <action name="actionDocumentation">
    <property name="text">
     <string>Documentation</string>
+   </property>
+  </action>
+  <action name="actionCheck_Updates">
+   <property name="text">
+    <string>Проверить обновления</string>
    </property>
   </action>
   <action name="actionBreak_music_torture">

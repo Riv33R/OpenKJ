@@ -1653,6 +1653,16 @@ bool Settings::checkUpdates()
     return settings->value("checkUpdates", true).toBool();
 }
 
+QString Settings::updateManifestUrl()
+{
+    return settings->value("updateManifestUrl", "https://api.github.com/repos/Riv33R/OpenKJ/releases/latest").toString();
+}
+
+void Settings::setUpdateManifestUrl(const QString &url)
+{
+    settings->setValue("updateManifestUrl", url);
+}
+
 int Settings::updatesBranch()
 {
     return settings->value("updatesBranch", 0).toInt();
