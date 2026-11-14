@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Скрипт установки зависимостей (Qt 5.15.2 MinGW, MinGW-w64 8.1, GStreamer, Ninja)
     и одновременной сборки OpenKJ под Windows x64 (build) и Windows x86 (build_x86).
@@ -8,16 +8,22 @@ param(
     [ValidateSet("all", "x64", "x86")]
     [string]$Arch = "all",
     [switch]$InstallDeps = $false,
-    [string]$DepsDir = "F:\Karaoke\deps",
+    [string]$DepsDir = "",
     [string]$GstVersion = "1.26.11"
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ProjectRoot
+if ([string]::IsNullOrWhiteSpace($DepsDir)) {
+    $DepsDir = Join-Path (Split-Path -Parent $ProjectRoot) "deps"
+}
 
 $BasePath = $env:PATH
-$PythonScripts = "C:\Users\dimag\AppData\Local\Programs\Python\Python312\Scripts"
+$PythonScripts = ""
+try {
+    $PythonScripts = (& python -c "import sysconfig; print(sysconfig.get_path('scripts'))" 2>$null | Out-String).Trim()
+} catch { }
 
 function Resolve-GstRoot {
     param(
@@ -257,6 +263,37 @@ function Build-OpenKJTarget {
         }
     }
 
+    # Remove unused SQL drivers, QtBluetooth, D3D12 helper, and Rust/cloud plugins requiring bcryptprimitives.dll
+    foreach ($unusedFile in @(
+        "sqldrivers\qsqlpsql.dll",
+        "sqldrivers\qsqlodbc.dll",
+        "Qt5Bluetooth.dll",
+        "libgstd3d12-1.0-0.dll"
+    )) {
+        $uPath = Join-Path $BuildDir $unusedFile
+        if (Test-Path $uPath) { Remove-Item $uPath -Force }
+    }
+    $GstPluginDir = Join-Path $BuildDir "lib\gstreamer-1.0"
+    if (Test-Path $GstPluginDir) {
+        $pyPrune = @"
+import os, sys, struct
+pdir = sys.argv[1]
+for fn in os.listdir(pdir):
+    if not fn.lower().endswith('.dll'):
+        continue
+    fp = os.path.join(pdir, fn)
+    with open(fp, 'rb') as f:
+        data = f.read()
+    if b'bcryptprimitives.dll' in data or b'd3d12.dll' in data:
+        os.remove(fp)
+"@
+        & python -c $pyPrune $GstPluginDir
+    }
+
+    # Generate qt.conf so Qt always loads plugins and translations strictly relative to openkj.exe
+    $QtConfPath = Join-Path $BuildDir "qt.conf"
+    Set-Content -Path $QtConfPath -Value "[Paths]`r`nPrefix = ." -Encoding ASCII
+
     $LocalRunBat = Join-Path $BuildDir "run.bat"
     $LocalRunBatContent = @"
 @echo off
@@ -272,7 +309,7 @@ start "" "%APP_DIR%openkj.exe" %*
     if (Test-Path $DeployDir) { Remove-Item $DeployDir -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $DeployDir | Out-Null
 
-    Get-ChildItem -Path $BuildDir -File | Where-Object { $_.Extension -in '.exe', '.dll', '.bat' } | Copy-Item -Destination $DeployDir -Force
+    Get-ChildItem -Path $BuildDir -File | Where-Object { $_.Extension -in '.exe', '.dll', '.bat', '.conf' } | Copy-Item -Destination $DeployDir -Force
     foreach ($sub in @('lib', 'libexec', 'platforms', 'sqldrivers', 'imageformats', 'iconengines', 'styles', 'bearer', 'translations')) {
         $srcSub = Join-Path $BuildDir $sub
         if (Test-Path $srcSub) {
