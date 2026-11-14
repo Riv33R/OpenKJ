@@ -220,6 +220,9 @@ DlgSettings::DlgSettings(MediaBackend &AudioBackend, MediaBackend &BmAudioBacken
     ui->cbxStopPauseWarning->setChecked(m_settings.showSongPauseStopWarning());
     ui->cbxCheckUpdates->setChecked(m_settings.checkUpdates());
     ui->comboBoxUpdateBranch->setCurrentIndex(m_settings.updatesBranch());
+    ui->cbxCheckUpdates->setVisible(false);
+    ui->comboBoxUpdateBranch->setVisible(false);
+    ui->groupBox_4->setVisible(false);
     ui->lineEditDownloadsDir->setText(m_settings.storeDownloadDir());
     ui->lineEditLogDir->setText(m_settings.logDir());
     ui->checkBoxEnforceAspectRatio->setChecked(m_settings.enforceAspectRatio());

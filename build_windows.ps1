@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Скрипт установки зависимостей (Qt 5.15.2 MinGW, MinGW-w64 8.1, GStreamer, Ninja)
     и одновременной сборки OpenKJ под Windows x64 (build) и Windows x86 (build_x86).

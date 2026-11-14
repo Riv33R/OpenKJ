@@ -162,6 +162,7 @@ void OKJSongbookAPI::handleHttpConnection()
                 socket->setProperty("reqBuf", buf);
                 return;
             }
+            bool okLen = true;
             int contentLength = 0;
             QList<QByteArray> headerLines = buf.left(headerEnd).split('\n');
             for (const QByteArray &line : headerLines)
@@ -169,10 +170,20 @@ void OKJSongbookAPI::handleHttpConnection()
                 QByteArray trimmed = line.trimmed();
                 if (trimmed.toLower().startsWith("content-length:"))
                 {
-                    contentLength = trimmed.mid(15).trimmed().toInt();
+                    contentLength = trimmed.mid(15).trimmed().toInt(&okLen);
+                    if (!okLen || contentLength < 0 || contentLength > 65536)
+                    {
+                        sendHttpResponse(socket, 400, "Bad Request", "text/plain; charset=utf-8", "Invalid Content-Length");
+                        return;
+                    }
                 }
             }
             int totalNeeded = headerEnd + 4 + contentLength;
+            if (totalNeeded > 65536)
+            {
+                sendHttpResponse(socket, 413, "Payload Too Large", "text/plain; charset=utf-8", "Payload Too Large");
+                return;
+            }
             if (buf.size() < totalNeeded)
             {
                 socket->setProperty("reqBuf", buf);

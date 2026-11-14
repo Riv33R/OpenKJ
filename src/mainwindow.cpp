@@ -593,7 +593,6 @@ MainWindow::MainWindow(QWidget *parent) :
     QCoreApplication::setApplicationName("OpenKJ");
     ui->setupUi(this);
     setMouseTracking(true);
-    m_songShop = std::make_unique<SongShop>(this);
     m_lazyDurationUpdater = std::make_unique<LazyDurationUpdateController>(this);
     ui->tableViewBmPlaylist->setMouseTracking(true);
     m_historyTabWidget = ui->tabWidgetQueue->widget(1);
@@ -658,8 +657,8 @@ MainWindow::MainWindow(QWidget *parent) :
     dlgKeyChange = std::make_unique<DlgKeyChange>(&m_qModel, this);
     requestsDialog = std::make_unique<DlgRequests>(m_rotModel, m_songbookApi);
     requestsDialog->setModal(false);
-    dlgSongShop = std::make_unique<DlgSongShop>(m_songShop);
-    dlgSongShop->setModal(false);
+    ui->pushButtonShop->setVisible(false);
+    ui->actionSong_Shop->setVisible(false);
     ui->tableViewDB->setModel(&m_karaokeSongsModel);
     ui->tableViewDB->viewport()->installEventFilter(new TableViewToolTipFilter(ui->tableViewDB));
     if (!MediaBackend::canPitchShift()) {
@@ -705,8 +704,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tableViewBmPlaylist->setItemDelegate(&m_itemDelegatePlSongs);
     ui->tableViewBmDb->setColumnHidden(TableModelBreakSongs::COL_ID, true);
     ui->tableViewBmPlaylist->setColumnHidden(TableModelPlaylistSongs::COL_POSITION, true);
-    m_updateChecker = std::make_unique<UpdateChecker>(this);
-    m_updateChecker->checkForUpdates();
     m_timerButtonFlash.start(1000);
     m_logger->info("{} Initial UI setup complete", m_loggingPrefix);
     QApplication::processEvents();
@@ -761,7 +758,6 @@ void MainWindow::loadSettings() {
     m_settings.restoreSplitterState(ui->splitter);
     m_settings.restoreSplitterState(ui->splitter_2);
     m_settings.restoreSplitterState(ui->splitterBm);
-    m_settings.restoreWindowState(dlgSongShop.get());
     m_bmCurrentPlaylist = m_settings.bmPlaylistIndex();
     ui->comboBoxBmPlaylists->setCurrentIndex(m_settings.bmPlaylistIndex());
     ui->actionDisplay_Filenames->setChecked(m_settings.bmShowFilenames());
@@ -912,7 +908,6 @@ void MainWindow::setupConnections() {
     connect(&m_mediaBackendSfx, &MediaBackend::durationChanged, this, &MainWindow::sfxAudioBackend_durationChanged);
     connect(&m_mediaBackendSfx, &MediaBackend::stateChanged, this, &MainWindow::sfxAudioBackend_stateChanged);
     connect(&m_rotModel, &TableModelRotation::rotationModified, this, &MainWindow::rotationDataChanged, Qt::QueuedConnection);
-    connect(m_songShop.get(), &SongShop::karaokeSongDownloaded, dbDialog.get(), &DlgDatabase::singleSongAdd);
     connect(ui->pushButtonTempoDn, &QPushButton::clicked, ui->spinBoxTempo, &QSpinBox::stepDown);
     connect(ui->pushButtonTempoUp, &QPushButton::clicked, ui->spinBoxTempo, &QSpinBox::stepUp);
     connect(ui->pushButtonKeyDn, &QPushButton::clicked, ui->spinBoxKey, &QSpinBox::stepDown);
@@ -940,10 +935,8 @@ void MainWindow::setupConnections() {
     connect(&m_qModel, &TableModelQueueSongs::songDroppedWithoutSinger, this, &MainWindow::songDropNoSingerSel);
     connect(ui->splitter_3, &QSplitter::splitterMoved, [&]() { autosizeViews(); });
     connect(ui->splitterBm, &QSplitter::splitterMoved, [&]() { autosizeBmViews(); });
-    connect(m_updateChecker.get(), &UpdateChecker::newVersionAvailable, this, &MainWindow::newVersionAvailable);
     connect(&m_timerButtonFlash, &QTimer::timeout, this, &MainWindow::timerButtonFlashTimeout);
 
-    connect(ui->actionSong_Shop, &QAction::triggered, [&]() { show(); });
     connect(&m_qModel, &TableModelQueueSongs::filesDroppedOnSinger, this, &MainWindow::filesDroppedOnQueue);
     connect(ui->tableViewRotation->selectionModel(), &QItemSelectionModel::currentChanged, this,
             &MainWindow::tableViewRotationCurrentChanged);
@@ -1088,8 +1081,6 @@ void MainWindow::setupConnections() {
             dlgEq->raise();
     });
     connect(ui->pushButtonIncomingRequests, &QPushButton::clicked, requestsDialog.get(), &DlgRequests::show);
-    connect(ui->pushButtonShop, &QPushButton::clicked, dlgSongShop.get(), &DlgSongShop::show);
-    connect(ui->actionSong_Shop, &QAction::triggered, dlgSongShop.get(), &DlgSongShop::show);
     connect(ui->tabWidget, &QTabWidget::currentChanged, this, &MainWindow::tabWidgetCurrentChanged);
     connect(ui->sliderBmPosition, &QSlider::sliderPressed, this, &MainWindow::sliderBmPositionPressed);
     connect(ui->sliderBmPosition, &QSlider::sliderReleased, this, &MainWindow::sliderBmPositionReleased);
@@ -1465,7 +1456,6 @@ MainWindow::~MainWindow() {
     m_settings.saveColumnWidths(ui->tableViewDB);
     m_settings.saveColumnWidths(ui->tableViewRotation);
     m_settings.saveWindowState(requestsDialog.get());
-    m_settings.saveWindowState(dlgSongShop.get());
     m_settings.saveWindowState(dbDialog.get());
     m_settings.saveWindowState(this);
     m_settings.saveSplitterState(ui->splitterBm);
@@ -3308,7 +3298,6 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         m_settings.saveWindowState(cdgWindow.get());
     m_settings.setShowCdgWindow(cdgWindow->isVisible());
     cdgWindow->setVisible(false);
-    dlgSongShop->setVisible(false);
     requestsDialog->setVisible(false);
     event->accept();
 }
@@ -3328,26 +3317,6 @@ void MainWindow::songDropNoSingerSel() {
     QMessageBox msgBox;
     msgBox.setText("No singer selected.  You must select a singer before you can add songs to a queue.");
     msgBox.setIcon(QMessageBox::Warning);
-    msgBox.exec();
-}
-
-void MainWindow::newVersionAvailable(const QString &version) {
-    QMessageBox msgBox;
-    msgBox.setTextFormat(Qt::RichText);
-    msgBox.setText("New version of OpenKJ is available: " + version);
-    msgBox.setIcon(QMessageBox::Information);
-    if (m_updateChecker->getOS() == "Linux") {
-        msgBox.setInformativeText(
-                "To install the update, please use your distribution's package manager or download and build the current source.");
-    }
-    if (m_updateChecker->getOS() == "Win32" || m_updateChecker->getOS() == "Win64") {
-        msgBox.setInformativeText(
-                "You can download the new version at <a href=https://openkj.org/software>https://openkj.org/software</a>");
-    }
-    if (m_updateChecker->getOS() == "MacOS") {
-        msgBox.setInformativeText(
-                "You can download the new version at <a href=https://openkj.org/software>https://openkj.org/software</a>");
-    }
     msgBox.exec();
 }
 
@@ -4264,7 +4233,12 @@ void MainWindow::comboBoxSearchTypeIndexChanged(int index) {
 }
 
 void MainWindow::actionDocumentation() {
-    QDesktopServices::openUrl(QUrl("https://docs.openkj.org"));
+    QString localGuide = QCoreApplication::applicationDirPath() + "/OPERATOR_GUIDE.md";
+    if (QFileInfo::exists(localGuide)) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(localGuide));
+    } else {
+        QDesktopServices::openUrl(QUrl("https://github.com/Riv33R/OpenKJ/blob/master/OPERATOR_GUIDE.md"));
+    }
 }
 
 void MainWindow::buttonHistoryPlayClicked() {

@@ -50,10 +50,8 @@
 #include "audiorecorder.h"
 #include "dlgbookcreator.h"
 #include "dlgeq.h"
-#include "updatechecker.h"
+#include "okjversion.h"
 #include "dlgaddsinger.h"
-#include "dlgsongshop.h"
-#include "songshop.h"
 #include "durationlazyupdater.h"
 #include "dlgvideopreview.h"
 #include "src/models/tablemodelhistorysongs.h"
@@ -114,7 +112,6 @@ private:
     std::unique_ptr<DlgDatabase> dbDialog;
     std::unique_ptr<DlgKeyChange> dlgKeyChange;
     std::unique_ptr<DlgRequests> requestsDialog;
-    std::unique_ptr<DlgSongShop> dlgSongShop;
     std::unique_ptr<BmDbDialog> bmDbDialog;
     DlgRegularSingers m_dlgRegularSingers{&m_rotModel, this};
     MediaBackend m_mediaBackendKar{this, "KAR", MediaBackend::Karaoke};
@@ -155,8 +152,6 @@ private:
     QShortcut m_scutDeletePlSong{nullptr};
     std::unique_ptr<LazyDurationUpdateController> m_lazyDurationUpdater;
     std::unique_ptr<QTemporaryDir> m_mediaTempDir;
-    std::shared_ptr<SongShop> m_songShop;
-    std::unique_ptr<UpdateChecker> m_updateChecker;
     OKJSongbookAPI m_songbookApi;
     QWidget *m_historyTabWidget;
     std::mt19937_64 rng;
@@ -259,7 +254,6 @@ private slots:
     static void audioError(const QString &msg);
     void autosizeRotationCols();
     static void songDropNoSingerSel();
-    void newVersionAvailable(const QString &version);
     void filesDroppedOnQueue(const QList<QUrl> &urls, const int &singerId, const int &position);
     void appFontChanged(const QFont &font);
     void tabWidgetCurrentChanged(const int &index);

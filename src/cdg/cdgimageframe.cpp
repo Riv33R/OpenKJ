@@ -1,4 +1,6 @@
 #include "cdgimageframe.h"
+#include <cstring>
+#include <vector>
 
 
 CdgImageFrame::CdgImageFrame()
@@ -169,61 +171,73 @@ void CdgImageFrame::cmdTileBlock(const cdg::CdgTileBlockData &tileBlockPacket, c
 
 void CdgImageFrame::cmdScroll(const cdg::CdgScrollCmdData &scrollCmdData, const cdg::ScrollType type)
 {
-    // Todo: add range checks for corrupted CDG packets to prevent crashes
+    if (type != cdg::ScrollCopy && scrollCmdData.color >= 16)
+        return;
+
+    const int pxBytes = 6 * m_bytesPerPixel;
+    const int rowMoveBytes = 294 * m_bytesPerPixel;
 
     if (scrollCmdData.hSCmd == 2)
     {
         // scroll left 6px
-        for (auto i=0; i < 216; i++)
+        unsigned char tmpPixels[24];
+        if (pxBytes > static_cast<int>(sizeof(tmpPixels)))
+            return;
+        for (auto i = 0; i < 216; i++)
         {
             auto bits = m_image.scanLine(i);
-            unsigned char* tmpPixels[6];
-            memcpy(tmpPixels, bits, 6);
-            memcpy(bits, bits + (6 * m_bytesPerPixel), 294 * m_bytesPerPixel);
+            memcpy(tmpPixels, bits, pxBytes);
+            memmove(bits, bits + pxBytes, rowMoveBytes);
             if (type == cdg::ScrollCopy)
-                memcpy(bits + m_borderRBytesOffset, tmpPixels, 6);
+                memcpy(bits + m_borderRBytesOffset, tmpPixels, pxBytes);
             else
-                memset(bits + m_borderLRBytes, scrollCmdData.color, 6);
+                memset(bits + m_borderLRBytes, scrollCmdData.color, pxBytes);
         }
     }
     if (scrollCmdData.hSCmd == 1)
     {
         // scroll right 6px
-        for (auto i=0; i < 216; i++)
+        unsigned char tmpPixels[24];
+        if (pxBytes > static_cast<int>(sizeof(tmpPixels)))
+            return;
+        for (auto i = 0; i < 216; i++)
         {
             auto bits = m_image.scanLine(i);
-            unsigned char* tmpPixels[6];
-            memcpy(tmpPixels, bits + (m_bytesPerPixel * 294), 6);
-            memcpy(bits + (6 * m_bytesPerPixel), bits , 294 * m_bytesPerPixel);
+            memcpy(tmpPixels, bits + rowMoveBytes, pxBytes);
+            memmove(bits + pxBytes, bits, rowMoveBytes);
             if (type == cdg::ScrollCopy)
-                memcpy(bits, tmpPixels, 6);
+                memcpy(bits, tmpPixels, pxBytes);
             else
-                memset(bits, scrollCmdData.color, 6);
+                memset(bits, scrollCmdData.color, pxBytes);
         }
     }
     if (scrollCmdData.vSCmd == 2)
     {
         // scroll up 12px
         auto bits = m_image.bits();
-        unsigned char* tmpLines[3600]; // m_image.bytesPerLine() * 12
-        memcpy(tmpLines, bits, m_image.bytesPerLine() * 12);
-        memcpy(bits, bits + m_image.bytesPerLine() * 12, 204 * m_image.bytesPerLine());
+        const int bandBytes = m_image.bytesPerLine() * 12;
+        const int bodyBytes = m_image.bytesPerLine() * 204;
+        std::vector<unsigned char> tmpLines(static_cast<size_t>(bandBytes));
+        memcpy(tmpLines.data(), bits, bandBytes);
+        memmove(bits, bits + bandBytes, bodyBytes);
         if (type == cdg::ScrollCopy)
-            memcpy(bits + (204 * m_image.bytesPerLine()), tmpLines, m_image.bytesPerLine() * 12);
+            memcpy(bits + bodyBytes, tmpLines.data(), bandBytes);
         else
-            memset(bits + (204 * m_image.bytesPerLine()), scrollCmdData.color, m_image.bytesPerLine() * 12);
+            memset(bits + bodyBytes, scrollCmdData.color, bandBytes);
     }
     if (scrollCmdData.vSCmd == 1)
     {
         // scroll down 12px
         auto bits = m_image.bits();
-        unsigned char* tmpLines[3600];
-        memcpy(tmpLines, bits + (m_image.bytesPerLine() * 204), m_image.bytesPerLine() * 12);
-        memcpy(bits + (m_image.bytesPerLine() * 12), bits, 204 * m_image.bytesPerLine());
+        const int bandBytes = m_image.bytesPerLine() * 12;
+        const int bodyBytes = m_image.bytesPerLine() * 204;
+        std::vector<unsigned char> tmpLines(static_cast<size_t>(bandBytes));
+        memcpy(tmpLines.data(), bits + bodyBytes, bandBytes);
+        memmove(bits + bandBytes, bits, bodyBytes);
         if (type == cdg::ScrollCopy)
-            memcpy(bits, tmpLines, m_image.bytesPerLine() * 12);
+            memcpy(bits, tmpLines.data(), bandBytes);
         else
-            memset(bits, scrollCmdData.color, m_image.bytesPerLine() * 12);
+            memset(bits, scrollCmdData.color, bandBytes);
     }
     if (m_curVOffset != scrollCmdData.vSOffset)
         m_curVOffset = scrollCmdData.vSOffset;
