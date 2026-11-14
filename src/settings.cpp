@@ -613,11 +613,6 @@ void Settings::sync()
     settings->sync();
 }
 
-bool Settings::previewEnabled()
-{
-    return settings->value("previewEnabled", true).toBool();
-}
-
 bool Settings::showMainWindowVideo()
 {
     return settings->value("showMainWindowVideo", true).toBool();
@@ -819,12 +814,6 @@ void Settings::setRotationShowNextSong(bool show)
 void Settings::setProgressiveSearchEnabled(bool enabled)
 {
     settings->setValue("progressiveSearchEnabled", enabled);
-}
-
-void Settings::setPreviewEnabled(bool enabled)
-{
-    settings->setValue("previewEnabled", enabled);
-    emit previewEnabledChanged(enabled);
 }
 
 void Settings::setVideoOffsetMs(int offset)

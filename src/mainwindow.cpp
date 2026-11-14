@@ -664,11 +664,15 @@ MainWindow::MainWindow(QWidget *parent) :
     if (!MediaBackend::canPitchShift()) {
         ui->spinBoxKey->hide();
         ui->lblKey->hide();
+        ui->pushButtonKeyDn->hide();
+        ui->pushButtonKeyUp->hide();
         ui->tableViewQueue->hideColumn(7);
     }
     if (!MediaBackend::canChangeTempo()) {
         ui->spinBoxTempo->hide();
         ui->lblTempo->hide();
+        ui->pushButtonTempoDn->hide();
+        ui->pushButtonTempoUp->hide();
     }
     ui->videoPreview->setFillOnPaint(true);
     cdgWindow = std::make_unique<DlgCdg>(m_mediaBackendKar, m_mediaBackendBm, nullptr, Qt::Window);
@@ -3186,21 +3190,21 @@ void MainWindow::actionAboutTriggered() {
     QString title;
     QString text;
     QString date = QString::fromLocal8Bit(__DATE__) + " " + QString(__TIME__);
-    title = "About OpenKJ";
-    text =  "OpenKJ\nVersion: " + QString(OKJ_VERSION_STRING) + " " + QString(OKJ_VERSION_BRANCH);
-    text += "\nLicense: GNU GPL v3+";
-    text += "\nBuilt: " + date;
-    text += "\n\nIncluded library info";
-    text += "\n\nQt version: " + QString(QT_VERSION_STR);
-    text += "\nLicense: GNU GPL v3";
-    text += "\n\nGStreamer version: " + QString::number(GST_VERSION_MAJOR) + '.' + QString::number(GST_VERSION_MINOR) + '.' + QString::number(GST_VERSION_MICRO);
-    text += "\nLicense: GNU LGPL v2.1";
-    text += "\n\nspdlog version: " + QString::number(SPDLOG_VER_MAJOR) + '.' + QString::number(SPDLOG_VER_MINOR) + '.' + QString::number(SPDLOG_VER_PATCH);
-    text += "\nLicense: MIT";
-    text += "\n\nTagLib version: " + QString::number(TAGLIB_MAJOR_VERSION) + '.' + QString::number(TAGLIB_MINOR_VERSION) + '.' + QString::number(TAGLIB_PATCH_VERSION);
-    text += "\nLicense: GNU LGPL v2.1";
-    text += "\n\nMiniZ version: " + QString(MZ_VERSION);
-    text += "\nLicense: MIT";
+    title = tr("О программе OpenKJ");
+    text =  tr("OpenKJ\nВерсия: ") + QString(OKJ_VERSION_STRING) + " " + QString(OKJ_VERSION_BRANCH);
+    text += tr("\nЛицензия: GNU GPL v3+");
+    text += tr("\nСборка: ") + date;
+    text += tr("\n\nИспользуемые библиотеки");
+    text += tr("\n\nВерсия Qt: ") + QString(QT_VERSION_STR);
+    text += tr("\nЛицензия: GNU GPL v3");
+    text += tr("\n\nВерсия GStreamer: ") + QString::number(GST_VERSION_MAJOR) + '.' + QString::number(GST_VERSION_MINOR) + '.' + QString::number(GST_VERSION_MICRO);
+    text += tr("\nЛицензия: GNU LGPL v2.1");
+    text += tr("\n\nВерсия spdlog: ") + QString::number(SPDLOG_VER_MAJOR) + '.' + QString::number(SPDLOG_VER_MINOR) + '.' + QString::number(SPDLOG_VER_PATCH);
+    text += tr("\nЛицензия: MIT");
+    text += tr("\n\nВерсия TagLib: ") + QString::number(TAGLIB_MAJOR_VERSION) + '.' + QString::number(TAGLIB_MINOR_VERSION) + '.' + QString::number(TAGLIB_PATCH_VERSION);
+    text += tr("\nЛицензия: GNU LGPL v2.1");
+    text += tr("\n\nВерсия MiniZ: ") + QString(MZ_VERSION);
+    text += tr("\nЛицензия: MIT");
     QMessageBox::about(this, title, text);
 }
 

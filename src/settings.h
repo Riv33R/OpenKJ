@@ -281,7 +281,6 @@ public:
     QColor cdgRemainBgColor();
     [[nodiscard]] bool rotationShowNextSong() const;
     void sync();
-    bool previewEnabled();
     bool showMainWindowVideo();
     bool showMainWindowSoundClips();
     void setShowMplxControls(bool show);
@@ -319,7 +318,6 @@ signals:
     void rotationDurationSettingsModified();
     void rotationShowNextSongChanged(bool show);
     void remainOffsetChanged(int offsetR, int offsetB);
-    void previewEnabledChanged(bool enabled);
     void videoOffsetChanged(int offsetMs);
     void lastSingerAddPositionTypeChanged(int type);
     void shortcutsChanged();
@@ -393,7 +391,6 @@ public slots:
     void setCdgRemainBgColor(QColor color);
     void setRotationShowNextSong(bool show);
     void setProgressiveSearchEnabled(bool enabled);
-    void setPreviewEnabled(bool enabled);
     void setVideoOffsetMs(int offset);
     void setLastSingerAddPositionType(int type);
 };

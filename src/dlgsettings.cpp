@@ -223,6 +223,12 @@ DlgSettings::DlgSettings(MediaBackend &AudioBackend, MediaBackend &BmAudioBacken
     ui->cbxCheckUpdates->setVisible(false);
     ui->comboBoxUpdateBranch->setVisible(false);
     ui->groupBox_4->setVisible(false);
+    auto *qrInfoLabel = new QLabel(
+            tr("Встроенный локальный QR-сервер заявок работает автономно в вашей локальной сети — "
+               "настройка внешнего сервера (api.okjsongbook.com) ниже не требуется."),
+            ui->tabWidgetPage3);
+    qrInfoLabel->setWordWrap(true);
+    ui->verticalLayout_10->insertWidget(0, qrInfoLabel);
     ui->lineEditDownloadsDir->setText(m_settings.storeDownloadDir());
     ui->lineEditLogDir->setText(m_settings.logDir());
     ui->checkBoxEnforceAspectRatio->setChecked(m_settings.enforceAspectRatio());
@@ -952,12 +958,6 @@ void DlgSettings::on_checkBoxProgressiveSearch_toggled(bool checked) {
     if (!m_pageSetupDone)
         return;
     m_settings.setProgressiveSearchEnabled(checked);
-}
-
-void DlgSettings::on_cbxPreviewEnabled_toggled(bool checked) {
-    if (!m_pageSetupDone)
-        return;
-    m_settings.setPreviewEnabled(!checked);
 }
 
 void DlgSettings::on_comboBoxKAudioDevices_currentIndexChanged(int index) {

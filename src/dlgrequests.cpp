@@ -165,6 +165,17 @@ DlgRequests::DlgRequests(TableModelRotation &rotationModel, OKJSongbookAPI &song
     songbookApi.refreshVenues();
     ui->checkBoxAccepting->setChecked(songbookApi.getAccepting());
     updateMicHintLabel();
+
+    auto updateCloudUiVisibility = [this](bool cloudEnabled) {
+        ui->label_3->setVisible(cloudEnabled);
+        ui->comboBoxVenue->setVisible(cloudEnabled);
+        ui->pushButtonUpdateDb->setVisible(cloudEnabled);
+        ui->label_2->setVisible(cloudEnabled);
+        ui->labelLastUpdate->setVisible(cloudEnabled);
+        ui->buttonRefresh->setVisible(cloudEnabled);
+    };
+    updateCloudUiVisibility(m_settings.requestServerEnabled());
+    connect(&m_settings, &Settings::requestServerEnabledChanged, this, updateCloudUiVisibility);
 }
 
 void DlgRequests::setupLocalQrBar() {
@@ -369,7 +380,6 @@ void DlgRequests::updateIcons() {
     ui->buttonRefresh->setIcon(QIcon(thm + "actions/22/view-refresh.svg"));
     ui->pushButtonClearReqs->setIcon(QIcon(thm + "actions/22/edit-clear-all.svg"));
     ui->pushButtonSearch->setIcon(QIcon(thm + "actions/22/edit-find.svg"));
-    ui->pushButtonWebSearch->setIcon(QIcon(thm + "apps/48/internet-web-browser.svg"));
 }
 
 void DlgRequests::on_pushButtonClose_clicked() {
@@ -830,11 +840,6 @@ void DlgRequests::on_spinBoxKey_valueChanged(int arg1) {
         ui->spinBoxKey->setPrefix("+");
     else
         ui->spinBoxKey->setPrefix("");
-}
-
-void DlgRequests::on_pushButtonWebSearch_clicked() {
-    QString link = "http://db.openkj.org/?type=All&searchstr=" + ui->lineEditSearch->text();
-    QDesktopServices::openUrl(QUrl(link));
 }
 
 
