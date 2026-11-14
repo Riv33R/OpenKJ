@@ -13,16 +13,23 @@
 #include <QJsonArray>
 #include <QFile>
 #include <QDataStream>
+#include <QPushButton>
+#include <QComboBox>
+#include <QLabel>
+#include <QStandardPaths>
 #include <gst/gst.h>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/null_sink.h>
 
 #include "cdg/cdgimageframe.h"
+#include "dlgrequests.h"
+#include "dlgsettings.h"
 #include "idledetect.h"
 #include "okjsongbookapi.h"
 #include "okjtranslator.h"
 #include "mediabackend.h"
+#include "settings.h"
 #include "models/tablemodelkaraokesongs.h"
 #include "models/tablemodelrotation.h"
 #include "models/tablemodelqueuesongs.h"
@@ -325,6 +332,45 @@ private slots:
         QVERIFY(translator.loadTs(":/translations/openkj_ru.ts"));
         QCOMPARE(translator.translate("MainWindow", "Add singer", nullptr, -1), QString("Добавить исполнителя"));
         QCOMPARE(translator.translate("DlgSettings", "Language", nullptr, -1), QString("Язык интерфейса"));
+    }
+
+    void testUiAuditAndDialogs()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+        Settings s;
+        s.setRequestServerEnabled(false);
+
+        TableModelRotation rotModel;
+        OKJSongbookAPI api;
+        DlgRequests dlgReq(rotModel, api);
+
+        // External db.openkj.org search button must be removed
+        QVERIFY(dlgReq.findChild<QPushButton *>("pushButtonWebSearch") == nullptr);
+
+        // Cloud-only controls must be hidden when requestServerEnabled is false
+        auto *cbVenue = dlgReq.findChild<QComboBox *>("comboBoxVenue");
+        auto *btnUpdateDb = dlgReq.findChild<QPushButton *>("pushButtonUpdateDb");
+        auto *lblLastUpd = dlgReq.findChild<QLabel *>("labelLastUpdate");
+        auto *btnRefresh = dlgReq.findChild<QPushButton *>("buttonRefresh");
+        QVERIFY(cbVenue && cbVenue->isHidden());
+        QVERIFY(btnUpdateDb && btnUpdateDb->isHidden());
+        QVERIFY(lblLastUpd && lblLastUpd->isHidden());
+        QVERIFY(btnRefresh && btnRefresh->isHidden());
+
+        // DlgSettings Network tab must contain local QR server info label
+        MediaBackend karBackend(nullptr, "KTEST", MediaBackend::Karaoke);
+        MediaBackend bmBackend(nullptr, "BTEST", MediaBackend::BackgroundMusic);
+        DlgSettings dlgSettings(karBackend, bmBackend, api);
+        auto *netTab = dlgSettings.findChild<QWidget *>("tabWidgetPage3");
+        QVERIFY(netTab != nullptr);
+        bool hasQrNote = false;
+        for (QLabel *lbl : netTab->findChildren<QLabel *>()) {
+            if (lbl->text().contains("QR", Qt::CaseInsensitive)) {
+                hasQrNote = true;
+                break;
+            }
+        }
+        QVERIFY(hasQrNote);
     }
 };
 
