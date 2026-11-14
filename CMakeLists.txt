@@ -756,6 +756,19 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
             PROPERTY WIN32_EXECUTABLE true
     )
 
+    find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Test QUIET)
+    if (Qt${QT_VERSION_MAJOR}Test_FOUND)
+        enable_testing()
+        set(TEST_SOURCE_FILES ${SOURCE_FILES})
+        list(REMOVE_ITEM TEST_SOURCE_FILES "src/main.cpp")
+        add_executable(openkj_tests
+                tests/openkj_tests.cpp
+                ${TEST_SOURCE_FILES}
+                )
+        target_link_libraries(openkj_tests PRIVATE ${LIBRARIES} Qt${QT_VERSION_MAJOR}::Test)
+        add_test(NAME openkj_tests COMMAND openkj_tests)
+    endif ()
+
     if (DEFINED DEPLOY_DEPS)
         get_target_property(_qt5_qmake_location Qt5::qmake IMPORTED_LOCATION)
         execute_process(
