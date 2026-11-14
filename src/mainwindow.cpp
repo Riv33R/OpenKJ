@@ -932,6 +932,10 @@ void MainWindow::setupConnections() {
     connect(bmDbDialog.get(), &BmDbDialog::bmDbAboutToUpdate, this, &MainWindow::bmDatabaseAboutToUpdate);
     connect(&m_timerKaraokeAA, &QTimer::timeout, this, &MainWindow::karaokeAATimerTimeout);
     connect(ui->actionAutoplay_mode, &QAction::toggled, &m_settings, &Settings::setKaraokeAutoAdvance);
+    connect(ui->actionAutoplay_mode, &QAction::toggled, this, [this](bool checked) {
+        if (checked)
+            tryAutoStartKaraokeFromBreak();
+    });
 
 
     connect(ui->lineEdit, &CustomLineEdit::escapePressed, ui->lineEdit, &CustomLineEdit::clear);
@@ -954,6 +958,7 @@ void MainWindow::setupConnections() {
     connect(&m_qModel, &TableModelQueueSongs::queueModified, [&]() {
         updateRotationDuration();
         m_rotModel.layoutChanged();
+        tryAutoStartKaraokeFromBreak();
     });
     connect(m_lazyDurationUpdater.get(), &LazyDurationUpdateController::gotDuration, &m_karaokeSongsModel,
             &TableModelKaraokeSongs::setSongDuration);
@@ -1316,7 +1321,7 @@ void MainWindow::dbInit(const QDir &okjDataDir) {
 }
 
 
-void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
+bool MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
     m_mediaTempDir = std::make_unique<QTemporaryDir>();
     if (m_mediaBackendKar.state() != MediaBackend::PausedState) {
         m_logger->info("{} Playing file: {}", m_loggingPrefix, karaokeFilePath.toStdString());
@@ -1342,13 +1347,13 @@ void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
                         m_timerTest.stop();
                         QMessageBox::warning(this, tr("Bad karaoke file"), tr("Failed to extract audio file."),
                                              QMessageBox::Ok);
-                        return;
+                        return false;
                     }
                     if (!archive.extractCdg(m_mediaTempDir->path(), "tmp.cdg")) {
                         m_timerTest.stop();
                         QMessageBox::warning(this, tr("Bad karaoke file"), tr("Failed to extract CDG file."),
                                              QMessageBox::Ok);
-                        return;
+                        return false;
                     }
                     QString audioFile = m_mediaTempDir->path() + QDir::separator() + "tmp" + archive.audioExtension();
                     QString cdgFile = m_mediaTempDir->path() + QDir::separator() + "tmp.cdg";
@@ -1370,7 +1375,7 @@ void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
                 QMessageBox::warning(this, tr("Bad karaoke file"),
                                      tr("Zip file does not contain a valid karaoke track.  CDG or audio file missing or corrupt."),
                                      QMessageBox::Ok);
-                return;
+                return false;
             }
         } else if (karaokeFilePath.endsWith(".cdg", Qt::CaseInsensitive)) {
             QString cdgTmpFile = "tmp.cdg";
@@ -1379,23 +1384,23 @@ void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
             if (!cdgFile.exists()) {
                 m_timerTest.stop();
                 QMessageBox::warning(this, tr("Bad karaoke file"), tr("CDG file missing."), QMessageBox::Ok);
-                return;
+                return false;
             } else if (cdgFile.size() == 0) {
                 m_timerTest.stop();
                 QMessageBox::warning(this, tr("Bad karaoke file"), tr("CDG file contains no data"), QMessageBox::Ok);
-                return;
+                return false;
             }
             QString audioFilename = findMatchingAudioFile(karaokeFilePath);
             if (audioFilename == "") {
                 m_timerTest.stop();
                 QMessageBox::warning(this, tr("Bad karaoke file"), tr("Audio file missing."), QMessageBox::Ok);
-                return;
+                return false;
             }
             QFile audioFile(audioFilename);
             if (audioFile.size() == 0) {
                 m_timerTest.stop();
                 QMessageBox::warning(this, tr("Bad karaoke file"), tr("Audio file contains no data"), QMessageBox::Ok);
-                return;
+                return false;
             }
             cdgFile.copy(m_mediaTempDir->path() + QDir::separator() + cdgTmpFile);
             QFile::copy(audioFilename, m_mediaTempDir->path() + QDir::separator() + audTmpFile);
@@ -1441,6 +1446,7 @@ void MainWindow::play(const QString &karaokeFilePath, const bool &k2k) {
     m_k2kTransition = false;
     if (m_settings.karaokeAutoAdvance())
         m_kAASkip = false;
+    return true;
 }
 
 MainWindow::~MainWindow() {
@@ -2682,7 +2688,12 @@ void MainWindow::karaokeAATimerTimeout() {
             );
         }
         m_karaokeSongsModel.updateSongHistory(m_karaokeSongsModel.getIdForPath(nextSongPath));
-        play(nextSongPath);
+        if (!play(nextSongPath)) {
+            m_logger->warn("{} KaraokeAA - Playback did not start for {}, resuming break music",
+                           m_loggingPrefix, nextSongPath.toStdString());
+            resumeOrStartBreakMusic();
+            return;
+        }
         m_mediaBackendKar.setPitchShift(nextKeyChg);
         if (nextQueueId >= 0)
             m_qModel.setPlayed(nextQueueId);
@@ -2693,6 +2704,49 @@ void MainWindow::karaokeAATimerTimeout() {
             if (singer.position != 0)
                 m_rotModel.singerMove(singer.position, 0);
         }
+    }
+}
+
+void MainWindow::tryAutoStartKaraokeFromBreak() {
+    if (m_shuttingDown || m_kAASkip || !m_settings.karaokeAutoAdvance())
+        return;
+    if (m_mediaBackendKar.state() != MediaBackend::StoppedState || m_timerKaraokeAA.isActive())
+        return;
+    if (m_rotModel.singerCount() <= 0)
+        return;
+
+    int curPos = -1;
+    int curSingerId = m_rotModel.currentSinger();
+    if (!m_settings.rotationAltSortOrder() && curSingerId != -1) {
+        curPos = m_rotModel.getSinger(curSingerId).position;
+    }
+
+    okj::RotationSinger nextSinger;
+    QString nextSongPath;
+    for (int loops = 0; loops < m_rotModel.singerCount(); ++loops) {
+        if (++curPos >= m_rotModel.singerCount())
+            curPos = 0;
+        nextSinger = m_rotModel.getSingerAtPosition(curPos);
+        nextSongPath = nextSinger.nextSongPath();
+        if (!nextSongPath.isEmpty())
+            break;
+    }
+    if (nextSongPath.isEmpty())
+        return;
+
+    m_kAANextSinger = nextSinger.id;
+    m_kAANextSongPath = nextSongPath;
+    m_logger->info("{} KaraokeAA (from break) - Will play: {} - {}", m_loggingPrefix,
+                   nextSinger.name.toStdString(), nextSongPath.toStdString());
+    int timeoutSecs = m_settings.karaokeAATimeout();
+    if (timeoutSecs <= 0) {
+        karaokeAATimerTimeout();
+    } else {
+        m_timerKaraokeAA.start(timeoutSecs * 1000);
+        cdgWindow->setNextSinger(nextSinger.name);
+        cdgWindow->setNextSong(nextSinger.nextSongArtistTitle());
+        cdgWindow->setCountdownSecs(timeoutSecs);
+        cdgWindow->showAlert(true);
     }
 }
 
@@ -2823,10 +2877,12 @@ void MainWindow::bmMediaStateChanged(const MediaBackend::State &newState) {
                 saveBmPlaybackState();
                 m_logger->info("{} Break music auto-advancing to song: {}", m_loggingPrefix,
                                plSong->get().path.toStdString());
-                m_mediaBackendBm.stop(true);
-                m_mediaBackendBm.play();
-                if (m_mediaBackendKar.state() == MediaBackend::PlayingState)
-                    m_mediaBackendBm.fadeOutAndPause(true);
+                if (m_mediaBackendKar.state() == MediaBackend::PlayingState) {
+                    m_mediaBackendBm.stop(true);
+                } else {
+                    m_mediaBackendBm.stop(true);
+                    m_mediaBackendBm.play();
+                }
             } else {
                 m_mediaBackendBm.stop(true);
                 resetBmLabels();

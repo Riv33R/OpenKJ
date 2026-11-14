@@ -167,7 +167,7 @@ private:
     void saveBmPlaybackState();
     void resumeOrStartBreakMusic();
     void updateBreakMusicVisualizer();
-    void play(const QString &karaokeFilePath, const bool &k2k = false);
+    bool play(const QString &karaokeFilePath, const bool &k2k = false);
     void bmAddPlaylist(const QString& title);
     bool bmPlaylistExists(const QString& name);
     void addSfxButton(const QString &filename, const QString &label, bool reset = false);
@@ -218,6 +218,7 @@ private slots:
     void editSong(const std::shared_ptr<okj::KaraokeSong>& song);
     void markSongBad(const std::shared_ptr<okj::KaraokeSong>& song);
     void karaokeAATimerTimeout();
+    void tryAutoStartKaraokeFromBreak();
     void timerButtonFlashTimeout();
     void autosizeViews();
     void autosizeQueueCols();
