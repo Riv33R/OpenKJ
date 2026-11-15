@@ -4301,6 +4301,11 @@ void MainWindow::comboBoxSearchTypeIndexChanged(int index) {
 }
 
 void MainWindow::actionDocumentation() {
+    QString localHtmlGuide = QCoreApplication::applicationDirPath() + "/OPERATOR_GUIDE.html";
+    if (QFileInfo::exists(localHtmlGuide)) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(localHtmlGuide));
+        return;
+    }
     QString localGuide = QCoreApplication::applicationDirPath() + "/OPERATOR_GUIDE.md";
     if (QFileInfo::exists(localGuide)) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(localGuide));

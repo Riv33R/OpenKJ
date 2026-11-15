@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Скрипт установки зависимостей (Qt 5.15.2 MinGW, MinGW-w64 8.1, GStreamer, Ninja)
     и одновременной сборки OpenKJ под Windows x64 (build) и Windows x86 (build_x86).
@@ -23,7 +23,8 @@ $BasePath = $env:PATH
 $PythonScripts = ""
 try {
     $PythonScripts = (& python -c "import sysconfig; print(sysconfig.get_path('scripts'))" 2>$null | Out-String).Trim()
-} catch { }
+}
+catch { }
 
 function Resolve-GstRoot {
     param(
@@ -41,8 +42,8 @@ function Resolve-GstRoot {
         }
     }
     $found = Get-ChildItem -Path $ExtractDir -Directory -Recurse -Filter $SubDirName -ErrorAction SilentlyContinue |
-        Where-Object { Test-Path "$($_.FullName)\include\gstreamer-1.0" } |
-        Select-Object -First 1
+    Where-Object { Test-Path "$($_.FullName)\include\gstreamer-1.0" } |
+    Select-Object -First 1
     if ($found) {
         return $found.FullName
     }
@@ -134,7 +135,8 @@ function Build-OpenKJTarget {
         $GstSubDir = "mingw_x86_64"
         $GstMsiArch = "mingw-x86_64"
         $BuildDirName = "build"
-    } else {
+    }
+    else {
         $QtArch = "win32_mingw81"
         $MingwPkg = "qt.tools.win32_mingw810"
         $QtDir = "$DepsDir\Qt\5.15.2\mingw81_32"
@@ -149,7 +151,7 @@ function Build-OpenKJTarget {
 
     $GstRoot = Resolve-GstRoot -ExtractDir $GstExtractDir -SubDirName $GstSubDir
     $NeedGstRuntime = -not (Test-Path "$GstRoot\bin\libgstreamer-1.0-0.dll")
-    $NeedGstDevel   = -not (Test-Path "$GstRoot\include\gstreamer-1.0")
+    $NeedGstDevel = -not (Test-Path "$GstRoot\include\gstreamer-1.0")
     $NeedDeps = $InstallDeps -or (-not (Test-Path $QtDir)) -or (-not (Test-Path $MingwDir)) -or $NeedGstRuntime -or $NeedGstDevel
 
     if ($NeedDeps) {
@@ -179,7 +181,8 @@ function Build-OpenKJTarget {
             $DevelPkg = "$DepsDir\downloads\gstreamer-devel-$TargetArch.pkg"
             if (Test-Path "$DepsDir\downloads\gstreamer-devel-$TargetArch.msi") {
                 $DevelPkg = "$DepsDir\downloads\gstreamer-devel-$TargetArch.msi"
-            } else {
+            }
+            else {
                 Download-GstMsi -MsiPrefix "gstreamer-1.0-devel-$GstMsiArch" -OutFile $DevelPkg -Versions $CandidateVersions
             }
             Write-Host "Extracting GStreamer devel ($TargetArch) to $GstExtractDir..."
@@ -251,7 +254,8 @@ function Build-OpenKJTarget {
             $pPath = Join-Path $BuildDir "lib\gstreamer-1.0\$p"
             if (Test-Path $pPath) { Remove-Item $pPath -Force }
         }
-    } else {
+    }
+    else {
         $IncompatiblePlugins = @(
             "libgstamfcodec.dll", "libgstd3d11.dll", "libgstd3d12.dll", "libgstdwrite.dll",
             "libgstmediafoundation.dll", "libgstnvcodec.dll", "libgstqsv.dll",
@@ -265,11 +269,11 @@ function Build-OpenKJTarget {
 
     # Remove unused SQL drivers, QtBluetooth, D3D12 helper, and Rust/cloud plugins requiring bcryptprimitives.dll
     foreach ($unusedFile in @(
-        "sqldrivers\qsqlpsql.dll",
-        "sqldrivers\qsqlodbc.dll",
-        "Qt5Bluetooth.dll",
-        "libgstd3d12-1.0-0.dll"
-    )) {
+            "sqldrivers\qsqlpsql.dll",
+            "sqldrivers\qsqlodbc.dll",
+            "Qt5Bluetooth.dll",
+            "libgstd3d12-1.0-0.dll"
+        )) {
         $uPath = Join-Path $BuildDir $unusedFile
         if (Test-Path $uPath) { Remove-Item $uPath -Force }
     }
@@ -309,8 +313,15 @@ start "" "%APP_DIR%openkj.exe" %*
     if (Test-Path $DeployDir) { Remove-Item $DeployDir -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $DeployDir | Out-Null
 
+    $DocScript = Join-Path $ProjectRoot "scripts\build_docs.py"
+    if (Test-Path $DocScript) {
+        & python $DocScript
+    }
+    if (Test-Path (Join-Path $ProjectRoot "OPERATOR_GUIDE.html")) {
+        Copy-Item -Path (Join-Path $ProjectRoot "OPERATOR_GUIDE.html") -Destination $BuildDir -Force
+    }
     Copy-Item -Path (Join-Path $ProjectRoot "OPERATOR_GUIDE.md") -Destination $BuildDir -Force
-    Get-ChildItem -Path $BuildDir -File | Where-Object { $_.Extension -in '.exe', '.dll', '.bat', '.conf', '.md' -and $_.Name -ne 'openkj_tests.exe' } | Copy-Item -Destination $DeployDir -Force
+    Get-ChildItem -Path $BuildDir -File | Where-Object { $_.Extension -in '.exe', '.dll', '.bat', '.conf', '.html', '.md' -and $_.Name -ne 'openkj_tests.exe' } | Copy-Item -Destination $DeployDir -Force
     foreach ($sub in @('lib', 'libexec', 'platforms', 'sqldrivers', 'imageformats', 'iconengines', 'styles', 'bearer', 'translations')) {
         $srcSub = Join-Path $BuildDir $sub
         if (Test-Path $srcSub) {

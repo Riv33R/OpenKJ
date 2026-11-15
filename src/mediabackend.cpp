@@ -1128,6 +1128,8 @@ void MediaBackend::resetVideoSinks()
 
     for(auto &vs : m_videoSinks)
     {
+        if (!vs.videoSink || vs.softwareRenderVideoSink != nullptr)
+            continue;
         gst_video_overlay_set_window_handle(reinterpret_cast<GstVideoOverlay*>(vs.videoSink), vs.surface->winId());
     }
 }
@@ -1140,6 +1142,8 @@ void MediaBackend::forceVideoExpose()
     // this fixes a bug where window resize events that happens before the pipeline is playing is not reaching the sink
     for(auto &vs : m_videoSinks)
     {
+        if (!vs.videoSink || vs.softwareRenderVideoSink != nullptr)
+            continue;
         gst_video_overlay_expose(reinterpret_cast<GstVideoOverlay*>(vs.videoSink));
     }
 }
@@ -1381,6 +1385,17 @@ void MediaBackend::setVideoOutputWidgets(const std::vector<QWidget*>& surfaces)
         {
             auto sinkElementName = getVideoSinkElementNameForFactory();
             vd.videoSink = gst_element_factory_make(sinkElementName, QString("videoSink%1").arg(i).toLocal8Bit());
+            if (!vd.videoSink && QByteArray(sinkElementName) != "glimagesink")
+            {
+                m_logger->warn("{} Video sink '{}' unavailable, falling back to 'glimagesink'", m_loggingPrefix, sinkElementName);
+                vd.videoSink = gst_element_factory_make("glimagesink", QString("videoSink%1").arg(i).toLocal8Bit());
+            }
+            if (!vd.videoSink)
+            {
+                m_logger->warn("{} Hardware video sink unavailable, falling back to SoftwareRenderVideoSink", m_loggingPrefix);
+                vd.softwareRenderVideoSink = new SoftwareRenderVideoSink(surface);
+                vd.videoSink = GST_ELEMENT(vd.softwareRenderVideoSink->getSink());
+            }
         }
         else
         {
@@ -1413,7 +1428,7 @@ const char* MediaBackend::getVideoSinkElementNameForFactory()
         return "xvimagesink";
     }
 #elif defined(Q_OS_WIN)
-    return "d3d11videosink";
+    return "glimagesink";
 #endif
     return "glimagesink";
 }

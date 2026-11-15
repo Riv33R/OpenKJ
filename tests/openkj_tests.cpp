@@ -296,11 +296,16 @@ private slots:
         if (!gst_is_initialized())
             gst_init(nullptr, nullptr);
 
-        for (const char *factory : {"playbin", "audioconvert", "audioresample", "volume", "equalizer-10bands", "spectrum"}) {
+        for (const char *factory : {"playbin", "audioconvert", "audioresample", "volume", "equalizer-10bands", "spectrum", "videoconvert", "videoscale", "glimagesink"}) {
             GstElementFactory *f = gst_element_factory_find(factory);
             QVERIFY2(f != nullptr, qPrintable(QString("Missing GStreamer element: %1").arg(factory)));
             gst_object_unref(f);
         }
+
+        QWidget videoSurface;
+        videoSurface.resize(320, 240);
+        MediaBackend videoBackend(nullptr, "TEST_VIDEO", MediaBackend::Karaoke);
+        videoBackend.setVideoOutputWidgets({&videoSurface});
 
         QString wavPath = m_tempDir.filePath("test_silence.wav");
         QVERIFY(writeTestWav(wavPath, 800));
