@@ -296,19 +296,32 @@ private slots:
         if (!gst_is_initialized())
             gst_init(nullptr, nullptr);
 
-        for (const char *factory : {"playbin", "audioconvert", "audioresample", "volume", "equalizer-10bands", "spectrum", "videoconvert", "videoscale", "glimagesink"}) {
+        for (const char *factory : {"playbin", "audioconvert", "audioresample", "volume", "equalizer-10bands", "spectrum", "videoconvert", "videoscale", "appsink"}) {
             GstElementFactory *f = gst_element_factory_find(factory);
             QVERIFY2(f != nullptr, qPrintable(QString("Missing GStreamer element: %1").arg(factory)));
             gst_object_unref(f);
         }
 
-        QWidget videoSurface;
-        videoSurface.resize(320, 240);
-        MediaBackend videoBackend(nullptr, "TEST_VIDEO", MediaBackend::Karaoke);
-        videoBackend.setVideoOutputWidgets({&videoSurface});
-
         QString wavPath = m_tempDir.filePath("test_silence.wav");
         QVERIFY(writeTestWav(wavPath, 800));
+
+        QWidget videoSurface1;
+        QWidget videoSurface2;
+        videoSurface1.resize(320, 240);
+        videoSurface2.resize(320, 240);
+        MediaBackend videoBackend(nullptr, "TEST_VIDEO", MediaBackend::Karaoke);
+        videoBackend.setVideoOutputWidgets({&videoSurface1, &videoSurface2});
+        videoBackend.setMedia(wavPath);
+        videoBackend.setVolume(0);
+        videoBackend.play();
+        QElapsedTimer vwt;
+        vwt.start();
+        while (vwt.elapsed() < 2000 && videoBackend.state() != MediaBackend::PlayingState) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+            QTest::qWait(20);
+        }
+        QCOMPARE(videoBackend.state(), MediaBackend::PlayingState);
+        videoBackend.stop(true);
 
         MediaBackend backend(nullptr, "TEST", MediaBackend::BackgroundMusic);
         backend.setMedia(wavPath);

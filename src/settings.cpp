@@ -267,7 +267,7 @@ bool Settings::testingEnabled()
 bool Settings::hardwareAccelEnabled()
 {
     bool hwAccelDefault{true};
-#ifdef Q_OS_MACOS
+#if defined(Q_OS_MACOS) || defined(Q_OS_WIN)
     hwAccelDefault = false;
 #endif
     return settings->value("hardwareAccelEnabled", hwAccelDefault).toBool();

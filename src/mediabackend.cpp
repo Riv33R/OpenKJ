@@ -1385,14 +1385,10 @@ void MediaBackend::setVideoOutputWidgets(const std::vector<QWidget*>& surfaces)
         {
             auto sinkElementName = getVideoSinkElementNameForFactory();
             vd.videoSink = gst_element_factory_make(sinkElementName, QString("videoSink%1").arg(i).toLocal8Bit());
-            if (!vd.videoSink && QByteArray(sinkElementName) != "glimagesink")
-            {
-                m_logger->warn("{} Video sink '{}' unavailable, falling back to 'glimagesink'", m_loggingPrefix, sinkElementName);
-                vd.videoSink = gst_element_factory_make("glimagesink", QString("videoSink%1").arg(i).toLocal8Bit());
-            }
             if (!vd.videoSink)
             {
-                m_logger->warn("{} Hardware video sink unavailable, falling back to SoftwareRenderVideoSink", m_loggingPrefix);
+                m_logger->warn("{} Video sink '{}' unavailable, falling back to SoftwareRenderVideoSink", m_loggingPrefix, sinkElementName);
+                m_videoAccelEnabled = false;
                 vd.softwareRenderVideoSink = new SoftwareRenderVideoSink(surface);
                 vd.videoSink = GST_ELEMENT(vd.softwareRenderVideoSink->getSink());
             }
@@ -1428,7 +1424,7 @@ const char* MediaBackend::getVideoSinkElementNameForFactory()
         return "xvimagesink";
     }
 #elif defined(Q_OS_WIN)
-    return "glimagesink";
+    return "d3d11videosink";
 #endif
     return "glimagesink";
 }
