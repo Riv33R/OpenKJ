@@ -1461,7 +1461,7 @@ void Settings::setKaraokeAATimeout(int secs)
 
 bool Settings::karaokeAAAlertEnabled()
 {
-    return settings->value("karaokeAAAlertEnabled", false).toBool();
+    return settings->value("karaokeAAAlertEnabled", true).toBool();
 }
 
 void Settings::setKaraokeAAAlertEnabled(bool enabled)

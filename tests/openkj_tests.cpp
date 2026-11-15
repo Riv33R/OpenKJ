@@ -392,7 +392,8 @@ private slots:
         }
         QVERIFY(hasQrNote);
 
-        // Default karaoke alert font must be large and readable (>= 24pt), and small saved fonts must be boosted
+        // Default karaoke alert must be enabled with a large readable font (>= 24pt), and small saved fonts must be boosted
+        QVERIFY(s.karaokeAAAlertEnabled());
         QVERIFY(s.karaokeAAAlertFont().pointSize() >= 24);
         DlgCdg dlgCdg(karBackend, bmBackend);
         QFont tinyFont = QApplication::font();
