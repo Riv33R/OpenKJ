@@ -149,7 +149,7 @@ void VideoDisplay::setRequestQrUrl(const QString &url)
     }
     else
     {
-        m_requestQrPixmap = okj::qr::generateQrCodePixmap(m_requestQrUrl, 240, 2);
+        m_requestQrPixmap = okj::qr::generateQrCodePixmap(m_requestQrUrl, 480, 2);
     }
     update();
 }
@@ -437,9 +437,9 @@ void VideoDisplay::paintVisualizer(QPainter &painter, const QRect &rect)
     // 6. QR Code Card for Smartphone Song Requests (in top-right corner)
     if (!m_requestQrPixmap.isNull() && w >= 420 && h >= 260)
     {
-        double qrBoxSize = std::clamp(minDim * 0.22, 76.0, 175.0);
-        double pad = std::max(8.0, qrBoxSize * 0.10);
-        double textH = std::max(32.0, qrBoxSize * 0.34);
+        double qrBoxSize = std::clamp(minDim * 0.30, 96.0, 320.0);
+        double pad = std::max(10.0, qrBoxSize * 0.08);
+        double textH = std::max(26.0, qrBoxSize * 0.16);
         double cardW = qrBoxSize + pad * 2.0;
         double cardH = qrBoxSize + pad * 2.0 + textH;
         double cardX = w - cardW - std::max(14.0, w * 0.028);
@@ -457,23 +457,13 @@ void VideoDisplay::paintVisualizer(QPainter &painter, const QRect &rect)
         painter.drawPixmap(qrImgRect.toRect(), m_requestQrPixmap);
 
         QFont qrFont = painter.font();
-        qrFont.setPointSize(std::clamp(static_cast<int>(qrBoxSize * 0.095), 7, 13));
+        qrFont.setPointSize(std::clamp(static_cast<int>(qrBoxSize * 0.082), 8, 22));
         qrFont.setBold(true);
         painter.setFont(qrFont);
         painter.setPen(QColor(248, 250, 252));
 
-        QRectF lblTop(cardX + 4.0, cardY + pad + qrBoxSize + 2.0, cardW - 8.0, textH * 0.52);
-        painter.drawText(lblTop, Qt::AlignHCenter | Qt::AlignVCenter, tr("📱 Заказ песни"));
-
-        QString shortUrl = m_requestQrUrl;
-        shortUrl.remove("http://");
-        shortUrl.remove("https://");
-        qrFont.setPointSize(std::clamp(static_cast<int>(qrBoxSize * 0.082), 6, 11));
-        qrFont.setBold(false);
-        painter.setFont(qrFont);
-        painter.setPen(QColor(125, 211, 252));
-        QRectF lblBot(cardX + 4.0, cardY + pad + qrBoxSize + textH * 0.48, cardW - 8.0, textH * 0.50);
-        painter.drawText(lblBot, Qt::AlignHCenter | Qt::AlignVCenter, shortUrl);
+        QRectF lblRect(cardX + 6.0, cardY + pad + qrBoxSize + 4.0, cardW - 12.0, textH - 4.0);
+        painter.drawText(lblRect, Qt::AlignHCenter | Qt::AlignVCenter, tr("📱 Заказ песни"));
     }
 }
 

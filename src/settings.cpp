@@ -1471,8 +1471,11 @@ void Settings::setKaraokeAAAlertEnabled(bool enabled)
 
 QFont Settings::karaokeAAAlertFont()
 {
+    QFont defaultFont = QApplication::font();
+    defaultFont.setPointSize(36);
+    defaultFont.setBold(true);
     QFont font;
-    font.fromString(settings->value("karaokeAAAlertFont", QApplication::font().toString()).toString());
+    font.fromString(settings->value("karaokeAAAlertFont", defaultFont.toString()).toString());
     return font;
 }
 

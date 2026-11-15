@@ -23,6 +23,7 @@
 #include <spdlog/sinks/null_sink.h>
 
 #include "cdg/cdgimageframe.h"
+#include "dlgcdg.h"
 #include "dlgrequests.h"
 #include "dlgsettings.h"
 #include "idledetect.h"
@@ -390,6 +391,17 @@ private slots:
             }
         }
         QVERIFY(hasQrNote);
+
+        // Default karaoke alert font must be large and readable (>= 24pt), and small saved fonts must be boosted
+        QVERIFY(s.karaokeAAAlertFont().pointSize() >= 24);
+        DlgCdg dlgCdg(karBackend, bmBackend);
+        QFont tinyFont = QApplication::font();
+        tinyFont.setPointSize(9);
+        dlgCdg.alertFontChanged(tinyFont);
+        auto *lblNextSinger = dlgCdg.findChild<QLabel *>("lblNextSinger");
+        auto *lblNextSong = dlgCdg.findChild<QLabel *>("lblNextSong");
+        QVERIFY(lblNextSinger && lblNextSinger->font().pointSize() >= 24);
+        QVERIFY(lblNextSong && lblNextSong->font().pointSize() >= 24);
     }
 
     void testUpdateCheckerManifestAndHash()

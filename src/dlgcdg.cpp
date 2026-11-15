@@ -173,6 +173,7 @@ void DlgCdg::showAlert(bool show)
 {
     if ((show) && (m_settings.karaokeAAAlertEnabled()))
     {
+        alertFontChanged(m_settings.karaokeAAAlertFont());
         ui->videoDisplayKar->hide();
         ui->videoDisplayBm->hide();
         ui->widgetAlert->show();
@@ -285,12 +286,27 @@ void DlgCdg::slideShowMoveNext()
 
 void DlgCdg::alertFontChanged(const QFont &font)
 {
-    ui->label->setFont(font);
-    ui->label_2->setFont(font);
-    ui->label_4->setFont(font);
-    ui->lblNextSinger->setFont(font);
-    ui->lblNextSong->setFont(font);
-    ui->lblSeconds->setFont(font);
+    QFont baseFont = font;
+    if (baseFont.pointSize() <= 14)
+    {
+        int autoPt = (height() > 200) ? std::clamp(height() / 18, 28, 54) : 36;
+        baseFont.setPointSize(autoPt);
+        baseFont.setBold(true);
+    }
+
+    QFont captionFont = baseFont;
+    captionFont.setPointSize(std::max(20, static_cast<int>(baseFont.pointSize() * 0.72)));
+    captionFont.setBold(false);
+
+    QFont valueFont = baseFont;
+    valueFont.setBold(true);
+
+    ui->label->setFont(captionFont);
+    ui->label_2->setFont(captionFont);
+    ui->label_4->setFont(captionFont);
+    ui->lblNextSinger->setFont(valueFont);
+    ui->lblNextSong->setFont(valueFont);
+    ui->lblSeconds->setFont(valueFont);
 }
 
 void DlgCdg::mouseMove([[maybe_unused]]QMouseEvent *event)
