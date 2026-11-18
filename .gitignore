@@ -49,8 +49,11 @@ CMakeLists.txt.user*
 
 # Don't include binary
 openKJ/OpenKJ
+*.exe
 *.zip
 *.log
+deploy_*/
+cd/output_*/
 
 # Visual Studio
 CMakeSettings.json
