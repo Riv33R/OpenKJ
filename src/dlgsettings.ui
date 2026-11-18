@@ -1183,6 +1183,105 @@ QPushButton:default {
              </widget>
             </item>
             <item>
+             <widget class="QGroupBox" name="groupBoxRemoteLibrary">
+              <property name="title">
+               <string>Удалённая библиотека (сервер)</string>
+              </property>
+              <layout class="QFormLayout" name="formLayoutRemoteLibrary">
+               <item row="0" column="0">
+                <widget class="QLabel" name="labelRemoteLibUrl">
+                 <property name="text">
+                  <string>URL сервера</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="lineEditRemoteLibUrl">
+                 <property name="placeholderText">
+                  <string>https://library.example.com</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="labelRemoteLibToken">
+                 <property name="text">
+                  <string>Bearer-токен</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <layout class="QHBoxLayout" name="horizontalLayoutRemoteToken">
+                 <item>
+                  <widget class="QLineEdit" name="lineEditRemoteLibToken">
+                   <property name="echoMode">
+                    <enum>QLineEdit::Password</enum>
+                   </property>
+                   <property name="placeholderText">
+                    <string>Секретный токен доступа</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnToggleRemoteLibToken">
+                   <property name="text">
+                    <string>Показать</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="labelRemoteLibDir">
+                 <property name="text">
+                  <string>Папка загрузки</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <layout class="QHBoxLayout" name="horizontalLayoutRemoteDir">
+                 <item>
+                  <widget class="QLineEdit" name="lineEditRemoteLibDir"/>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnBrowseRemoteLibDir">
+                   <property name="text">
+                    <string>Обзор…</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="3" column="1">
+                <layout class="QHBoxLayout" name="horizontalLayoutRemoteTest">
+                 <item>
+                  <spacer name="horizontalSpacerRemoteTest">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnTestRemoteLib">
+                   <property name="text">
+                    <string>Проверить подключение</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
              <spacer name="verticalSpacer_3">
               <property name="orientation">
                <enum>Qt::Vertical</enum>

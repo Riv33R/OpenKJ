@@ -502,6 +502,11 @@ set(SOURCE_FILES
         src/okjtranslator.h
         src/updatechecker.cpp
         src/updatechecker.h
+        src/remotelibraryclient.cpp
+        src/remotelibraryclient.h
+        src/dlgremotelibrary.cpp
+        src/dlgremotelibrary.h
+        src/dlgremotelibrary.ui
         src/mainwindow.h
         src/dlgaddsong.h
         src/dlgvideopreview.h

@@ -4,6 +4,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QTcpSocket>
+#include <QTcpServer>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
@@ -24,6 +25,7 @@
 
 #include "cdg/cdgimageframe.h"
 #include "dlgcdg.h"
+#include "remotelibraryclient.h"
 #include "dlgrequests.h"
 #include "dlgsettings.h"
 #include "idledetect.h"
@@ -444,6 +446,64 @@ private slots:
         const QByteArray expectedSha = QCryptographicHash::hash("OpenKJ-Update-Test", QCryptographicHash::Sha256).toHex();
         QVERIFY(UpdateChecker::verifyFileSha256(testBin, QString::fromLatin1(expectedSha)));
         QVERIFY(!UpdateChecker::verifyFileSha256(testBin, "0000000000000000000000000000000000000000000000000000000000000000"));
+    }
+
+    void testRemoteLibraryCatalogAndDownload()
+    {
+        QTcpServer mockServer;
+        QVERIFY(mockServer.listen(QHostAddress::LocalHost, 0));
+        const QString baseUrl = QString("http://127.0.0.1:%1").arg(mockServer.serverPort());
+        const QByteArray payloadBytes = "FAKE_VIDEO_PAYLOAD_12345";
+        const QByteArray catalogJson =
+            "{\"version\":1,\"tracks\":[{\"id\":\"abc123\",\"type\":\"karaoke\","
+            "\"artist\":\"Kino\",\"title\":\"Gruppa Krovi\",\"songid\":\"RUS001\","
+            "\"filename\":\"RUS001 - Kino - Gruppa Krovi.mp4\",\"rel_path\":\"RUS001 - Kino - Gruppa Krovi.mp4\","
+            "\"ext\":\"mp4\",\"size\":24,\"mtime\":1700000000}]}";
+
+        connect(&mockServer, &QTcpServer::newConnection, &mockServer, [&]() {
+            while (QTcpSocket *sock = mockServer.nextPendingConnection()) {
+                connect(sock, &QTcpSocket::readyRead, sock, [sock, catalogJson, payloadBytes]() {
+                    const QByteArray req = sock->readAll();
+                    if (!req.contains("Authorization: Bearer secret-tok")) {
+                        sock->write("HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                    } else if (req.startsWith("GET /api/v1/catalog")) {
+                        sock->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
+                                    + QByteArray::number(catalogJson.size()) + "\r\nConnection: close\r\n\r\n" + catalogJson);
+                    } else if (req.startsWith("GET /api/v1/download/abc123")) {
+                        sock->write("HTTP/1.1 200 OK\r\nContent-Type: video/mp4\r\nContent-Length: "
+                                    + QByteArray::number(payloadBytes.size()) + "\r\nConnection: close\r\n\r\n" + payloadBytes);
+                    } else {
+                        sock->write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                    }
+                    sock->flush();
+                    sock->disconnectFromHost();
+                });
+                connect(sock, &QTcpSocket::disconnected, sock, &QObject::deleteLater);
+            }
+        });
+
+        RemoteLibraryClient client;
+        QSignalSpy spyFetch(&client, &RemoteLibraryClient::catalogFetched);
+        client.fetchCatalog(baseUrl, "wrong-tok");
+        QVERIFY(spyFetch.wait(2000));
+        QCOMPARE(spyFetch.takeFirst().at(0).toBool(), false);
+
+        client.fetchCatalog(baseUrl, "secret-tok");
+        QVERIFY(spyFetch.wait(2000));
+        auto fetchArgs = spyFetch.takeFirst();
+        QCOMPARE(fetchArgs.at(0).toBool(), true);
+        const auto tracks = fetchArgs.at(1).value<QList<RemoteTrack>>();
+        QCOMPARE(tracks.size(), 1);
+        QCOMPARE(tracks.first().artist, QString("Kino"));
+
+        const QString destPath = m_tempDir.filePath("remote_dl/RUS001 - Kino - Gruppa Krovi.mp4");
+        QSignalSpy spyDl(&client, &RemoteLibraryClient::downloadFinished);
+        client.downloadTrack(tracks.first(), baseUrl, "secret-tok", destPath);
+        QVERIFY(spyDl.wait(2000));
+        QCOMPARE(spyDl.takeFirst().at(0).toBool(), true);
+        QFile downloaded(destPath);
+        QVERIFY(downloaded.open(QIODevice::ReadOnly));
+        QCOMPARE(downloaded.readAll(), payloadBytes);
     }
 };
 

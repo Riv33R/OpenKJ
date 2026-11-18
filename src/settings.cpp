@@ -1666,6 +1666,39 @@ void Settings::setUpdateManifestUrl(const QString &url)
     settings->setValue("updateManifestUrl", url);
 }
 
+QString Settings::remoteLibraryUrl()
+{
+    return settings->value("remoteLibraryUrl", "").toString();
+}
+
+void Settings::setRemoteLibraryUrl(const QString &url)
+{
+    settings->setValue("remoteLibraryUrl", url.trimmed());
+}
+
+QString Settings::remoteLibraryToken()
+{
+    return settings->value("remoteLibraryToken", "").toString();
+}
+
+void Settings::setRemoteLibraryToken(const QString &token)
+{
+    settings->setValue("remoteLibraryToken", token.trimmed());
+}
+
+QString Settings::remoteLibraryLocalDir()
+{
+    QString defaultDir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+    if (defaultDir.isEmpty())
+        defaultDir = QDir::homePath();
+    return settings->value("remoteLibraryLocalDir", QDir(defaultDir).filePath("OpenKJ_Remote")).toString();
+}
+
+void Settings::setRemoteLibraryLocalDir(const QString &dir)
+{
+    settings->setValue("remoteLibraryLocalDir", dir.trimmed());
+}
+
 int Settings::updatesBranch()
 {
     return settings->value("updatesBranch", 0).toInt();

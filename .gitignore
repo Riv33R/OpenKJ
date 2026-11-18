@@ -54,6 +54,8 @@ openKJ/OpenKJ
 *.log
 deploy_*/
 cd/output_*/
+__pycache__/
+*.pyc
 
 # Visual Studio
 CMakeSettings.json

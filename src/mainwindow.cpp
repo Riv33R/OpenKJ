@@ -31,6 +31,7 @@
 #include "mzarchive.h"
 #include "tagreader.h"
 #include "dlgeditsong.h"
+#include "dlgremotelibrary.h"
 #include "soundfxbutton.h"
 #include "src/models/tableviewtooltipfilter.h"
 #include "dbupdater.h"
@@ -1048,6 +1049,17 @@ void MainWindow::setupConnections() {
     connect(ui->sliderProgress, &QSlider::sliderPressed, this, &MainWindow::sliderProgressPressed);
     connect(ui->sliderProgress, &QSlider::sliderReleased, this, &MainWindow::sliderProgressReleased);
     connect(ui->actionManage_Break_DB, &QAction::triggered, bmDbDialog.get(), &BmDbDialog::show);
+    connect(ui->actionRemote_Library, &QAction::triggered, this, [this]() {
+        auto *dlg = new DlgRemoteLibrary(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dlg, &DlgRemoteLibrary::karaokeLibraryUpdated, this, [this]() {
+            m_karaokeSongsModel.loadData();
+        });
+        connect(dlg, &DlgRemoteLibrary::breakLibraryUpdated, this, [this]() {
+            m_tableModelBreakSongs.loadDatabase();
+        });
+        dlg->show();
+    });
     connect(ui->comboBoxBmPlaylists, qOverload<int>(&QComboBox::currentIndexChanged), this,
             &MainWindow::comboBoxBmPlaylistsIndexChanged);
     connect(ui->checkBoxBmBreak, &QCheckBox::toggled, this, &MainWindow::checkBoxBmBreakToggled);

@@ -1,0 +1,14 @@
+services:
+  openkj-library:
+    build: .
+    container_name: openkj-remote-library
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      OPENKJ_API_TOKEN: "change-me-to-a-long-secret-token"
+      OPENKJ_KARAOKE_DIR: "/media/karaoke"
+      OPENKJ_BREAK_DIR: "/media/break"
+    volumes:
+      - /path/to/karaoke:/media/karaoke:ro
+      - /path/to/break:/media/break:ro

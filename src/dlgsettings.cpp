@@ -19,6 +19,7 @@
 */
 
 #include "dlgsettings.h"
+#include "remotelibraryclient.h"
 #include "ui_dlgsettings.h"
 #include <QGuiApplication>
 #include <QDesktopWidget>
@@ -222,12 +223,51 @@ DlgSettings::DlgSettings(MediaBackend &AudioBackend, MediaBackend &BmAudioBacken
     ui->comboBoxUpdateBranch->setCurrentIndex(m_settings.updatesBranch());
     ui->comboBoxUpdateBranch->setVisible(false);
     ui->groupBox_4->setVisible(false);
+    ui->groupBoxRequestServer->setVisible(false);
     auto *qrInfoLabel = new QLabel(
-            tr("Встроенный локальный QR-сервер заявок работает автономно в вашей локальной сети — "
-               "настройка внешнего сервера (api.okjsongbook.com) ниже не требуется."),
+            tr("Встроенный локальный QR-сервер заявок работает автономно в вашей локальной сети по Wi-Fi."),
             ui->tabWidgetPage3);
     qrInfoLabel->setWordWrap(true);
     ui->verticalLayout_10->insertWidget(0, qrInfoLabel);
+    ui->lineEditRemoteLibUrl->setText(m_settings.remoteLibraryUrl());
+    ui->lineEditRemoteLibToken->setText(m_settings.remoteLibraryToken());
+    ui->lineEditRemoteLibDir->setText(m_settings.remoteLibraryLocalDir());
+    connect(ui->lineEditRemoteLibUrl, &QLineEdit::editingFinished, this, [this]() {
+        m_settings.setRemoteLibraryUrl(ui->lineEditRemoteLibUrl->text());
+    });
+    connect(ui->lineEditRemoteLibToken, &QLineEdit::editingFinished, this, [this]() {
+        m_settings.setRemoteLibraryToken(ui->lineEditRemoteLibToken->text());
+    });
+    connect(ui->lineEditRemoteLibDir, &QLineEdit::editingFinished, this, [this]() {
+        m_settings.setRemoteLibraryLocalDir(ui->lineEditRemoteLibDir->text());
+    });
+    connect(ui->btnToggleRemoteLibToken, &QPushButton::toggled, this, [this](bool checked) {
+        ui->lineEditRemoteLibToken->setEchoMode(checked ? QLineEdit::Normal : QLineEdit::Password);
+        ui->btnToggleRemoteLibToken->setText(checked ? tr("Скрыть") : tr("Показать"));
+    });
+    connect(ui->btnBrowseRemoteLibDir, &QPushButton::clicked, this, [this]() {
+        QString dir = QFileDialog::getExistingDirectory(this, tr("Выберите папку для скачанных треков"),
+                                                        ui->lineEditRemoteLibDir->text());
+        if (!dir.isEmpty()) {
+            ui->lineEditRemoteLibDir->setText(dir);
+            m_settings.setRemoteLibraryLocalDir(dir);
+        }
+    });
+    connect(ui->btnTestRemoteLib, &QPushButton::clicked, this, [this]() {
+        m_settings.setRemoteLibraryUrl(ui->lineEditRemoteLibUrl->text());
+        m_settings.setRemoteLibraryToken(ui->lineEditRemoteLibToken->text());
+        ui->btnTestRemoteLib->setEnabled(false);
+        auto *client = new RemoteLibraryClient(this);
+        connect(client, &RemoteLibraryClient::connectionTested, this, [this, client](bool ok, const QString &msg, int) {
+            ui->btnTestRemoteLib->setEnabled(true);
+            if (ok)
+                QMessageBox::information(this, tr("Удалённая библиотека"), msg);
+            else
+                QMessageBox::warning(this, tr("Удалённая библиотека"), msg);
+            client->deleteLater();
+        });
+        client->testConnection(ui->lineEditRemoteLibUrl->text(), ui->lineEditRemoteLibToken->text());
+    });
     ui->lineEditDownloadsDir->setText(m_settings.storeDownloadDir());
     ui->lineEditLogDir->setText(m_settings.logDir());
     ui->checkBoxEnforceAspectRatio->setChecked(m_settings.enforceAspectRatio());

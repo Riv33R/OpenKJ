@@ -3393,6 +3393,7 @@ QPushButton:default {
      <string>Karaoke</string>
     </property>
     <addaction name="actionManage_Karaoke_DB"/>
+    <addaction name="actionRemote_Library"/>
     <addaction name="actionRegulars"/>
     <addaction name="actionImport_Regulars"/>
     <addaction name="actionExport_Regulars"/>
@@ -3415,6 +3416,7 @@ QPushButton:default {
      <addaction name="actionPlaylistDelete"/>
     </widget>
     <addaction name="actionManage_Break_DB"/>
+    <addaction name="actionRemote_Library"/>
     <addaction name="actionDisplay_Metadata"/>
     <addaction name="actionDisplay_Filenames"/>
     <addaction name="menuPlaylists"/>
@@ -3510,6 +3512,11 @@ QPushButton:default {
   <action name="actionManage_Karaoke_DB">
    <property name="text">
     <string>Manage Karaoke DB</string>
+   </property>
+  </action>
+  <action name="actionRemote_Library">
+   <property name="text">
+    <string>Удалённая библиотека…</string>
    </property>
   </action>
   <action name="actionDisplay_Metadata">

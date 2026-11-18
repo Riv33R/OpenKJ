@@ -257,6 +257,9 @@ public:
     bool requestDialogAutoShow();
     bool checkUpdates();
     QString updateManifestUrl();
+    QString remoteLibraryUrl();
+    QString remoteLibraryToken();
+    QString remoteLibraryLocalDir();
     int updatesBranch();
     [[nodiscard]] int theme() const;
     [[nodiscard]] QString language() const;
@@ -375,6 +378,9 @@ public slots:
     void setRequestDialogAutoShow(bool enabled);
     void setCheckUpdates(bool enabled);
     void setUpdateManifestUrl(const QString &url);
+    void setRemoteLibraryUrl(const QString &url);
+    void setRemoteLibraryToken(const QString &token);
+    void setRemoteLibraryLocalDir(const QString &dir);
     void setUpdatesBranch(int index);
     void setTheme(int theme);
     void setLanguage(const QString &language);
