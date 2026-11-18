@@ -1,5 +1,5 @@
 #define MyAppName "OpenKJ"
-#define MyAppVersion "2.1.43"
+#define MyAppVersion "2.1.44"
 #define MyAppPublisher "OpenKJ Project"
 #define MyAppURL "https://github.com/Riv33R/OpenKJ"
 #define MyAppExeName "openkj.exe"
