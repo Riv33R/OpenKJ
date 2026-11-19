@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Скрипт установки зависимостей (Qt 5.15.2 MinGW, MinGW-w64 8.1, GStreamer, Ninja)
     и одновременной сборки OpenKJ под Windows x64 (build) и Windows x86 (build_x86).
@@ -230,6 +230,20 @@ function Build-OpenKJTarget {
     Copy-Item "$MingwDir\bin\libgcc_s_*.dll" "$BuildDir\" -Force -ErrorAction SilentlyContinue
     Copy-Item "$MingwDir\bin\libstdc++-6.dll" "$BuildDir\" -Force -ErrorAction SilentlyContinue
     Copy-Item "$MingwDir\bin\libwinpthread-1.dll" "$BuildDir\" -Force -ErrorAction SilentlyContinue
+
+    # Deploy OpenSSL 1.1.1 DLLs required by Qt 5.15.2 for TLS/HTTPS
+    $OpenSslDir = Join-Path $DepsDir "openssl_$TargetArch\app"
+    if ($TargetArch -eq "x64") {
+        foreach ($sslDll in @("libssl-1_1-x64.dll", "libcrypto-1_1-x64.dll")) {
+            $srcSsl = Join-Path $OpenSslDir $sslDll
+            if (Test-Path $srcSsl) { Copy-Item $srcSsl "$BuildDir\" -Force }
+        }
+    } else {
+        foreach ($sslDll in @("libssl-1_1.dll", "libcrypto-1_1.dll")) {
+            $srcSsl = Join-Path $OpenSslDir $sslDll
+            if (Test-Path $srcSsl) { Copy-Item $srcSsl "$BuildDir\" -Force }
+        }
+    }
 
     if (Test-Path "$GstRoot\lib\gstreamer-1.0") {
         New-Item -ItemType Directory -Force -Path "$BuildDir\lib\gstreamer-1.0" | Out-Null

@@ -3,6 +3,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSslSocket>
 #include <QTcpSocket>
 #include <QTcpServer>
 #include <QSqlDatabase>
@@ -450,6 +451,7 @@ private slots:
 
     void testRemoteLibraryCatalogAndDownload()
     {
+        QVERIFY2(QSslSocket::supportsSsl(), "Qt TLS/OpenSSL 1.1.1 support is missing");
         QTcpServer mockServer;
         QVERIFY(mockServer.listen(QHostAddress::LocalHost, 0));
         const QString baseUrl = QString("http://127.0.0.1:%1").arg(mockServer.serverPort());
