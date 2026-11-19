@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Каталог Караоке</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #0b0f19; color: #f1f5f9; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .glass { background: rgba(19, 26, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .letter-btn { transition: all 0.15s ease; }
+    .letter-btn.active { background: #6366f1; color: #ffffff; font-weight: 700; border-color: #818cf8; }
+    /* Hide scrollbar for alphabet pills */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col pb-12">
+
+  <!-- Шапка -->
+  <header class="glass sticky top-0 z-40 border-b border-slate-800 px-4 py-3.5 shadow-xl">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+          <i class="fa-solid fa-microphone-lines text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Каталог Караоке
+          </h1>
+          <p class="text-xs text-slate-400">Электронный песенник</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button onclick="openSyncModal()" class="text-xs font-medium text-slate-400 hover:text-white px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-600 transition flex items-center gap-1.5 bg-slate-900/60">
+          <i class="fa-solid fa-arrows-rotate"></i> <span class="hidden sm:inline">Синхронизация</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6 w-full flex-1 space-y-5">
+    
+    <!-- Информационная плашка -->
+    <div class="glass rounded-2xl p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-base flex-shrink-0">
+          <i class="fa-solid fa-circle-info"></i>
+        </div>
+        <div class="text-xs text-slate-300">
+          Выберите песню в каталоге и назовите её ведущему караоке.
+        </div>
+      </div>
+      <div class="flex items-center space-x-3 text-xs text-slate-400 self-end sm:self-center font-medium">
+        <span>Всего песен: <strong id="statTotalSongs" class="text-indigo-400">0</strong></span>
+        <span>•</span>
+        <span>Исполнителей: <strong id="statTotalArtists" class="text-violet-400">0</strong></span>
+      </div>
+    </div>
+
+    <!-- Поисковая строка -->
+    <div class="relative">
+      <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-slate-400"></i>
+      <input type="text" id="searchInput" oninput="onSearchInput()" placeholder="Поиск по исполнителю или названию трека..." 
+             class="w-full pl-11 pr-10 py-3 rounded-xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-inner transition">
+      <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3 top-3 text-slate-400 hover:text-white p-1">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+    </div>
+
+    <!-- Алфавитный фильтр -->
+    <div class="overflow-x-auto no-scrollbar py-1">
+      <div id="alphabetBar" class="flex space-x-1.5 min-w-max text-xs">
+        <button onclick="filterLetter('')" class="letter-btn active px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-300 hover:text-white">Все</button>
+        <!-- Русские буквы -->
+        <button onclick="filterLetter('А')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">А</button>
+        <button onclick="filterLetter('Б')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Б</button>
+        <button onclick="filterLetter('В')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">В</button>
+        <button onclick="filterLetter('Г')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Г</button>
+        <button onclick="filterLetter('Д')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Д</button>
+        <button onclick="filterLetter('Е')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Е</button>
+        <button onclick="filterLetter('Ж')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Ж</button>
+        <button onclick="filterLetter('З')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">З</button>
+        <button onclick="filterLetter('И')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">И</button>
+        <button onclick="filterLetter('К')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">К</button>
+        <button onclick="filterLetter('Л')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Л</button>
+        <button onclick="filterLetter('М')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">М</button>
+        <button onclick="filterLetter('Н')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Н</button>
+        <button onclick="filterLetter('О')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">О</button>
+        <button onclick="filterLetter('П')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">П</button>
+        <button onclick="filterLetter('Р')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Р</button>
+        <button onclick="filterLetter('С')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">С</button>
+        <button onclick="filterLetter('Т')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Т</button>
+        <button onclick="filterLetter('У')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">У</button>
+        <button onclick="filterLetter('Ф')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Ф</button>
+        <button onclick="filterLetter('Х')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Х</button>
+        <button onclick="filterLetter('Ц')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Ц</button>
+        <button onclick="filterLetter('Ч')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Ч</button>
+        <button onclick="filterLetter('Ш')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Ш</button>
+        <button onclick="filterLetter('Э')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Э</button>
+        <button onclick="filterLetter('Ю')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Ю</button>
+        <button onclick="filterLetter('Я')" class="letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">Я</button>
+        <!-- Латиница -->
+        <button onclick="filterLetter('A-Z')" class="letter-btn px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">A-Z</button>
+        <button onclick="filterLetter('0-9')" class="letter-btn px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white">0-9</button>
+      </div>
+    </div>
+
+    <!-- Статус поиска -->
+    <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+      <span id="searchStatus">Загрузка...</span>
+      <span id="displayCount" class="font-mono"></span>
+    </div>
+
+    <!-- Список песен -->
+    <div id="songList" class="space-y-2">
+      <!-- Элементы рендерятся через JS -->
+    </div>
+  </main>
+
+  <!-- Модальное окно синхронизации -->
+  <div id="syncModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass max-w-sm w-full rounded-2xl p-6 border border-slate-800 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-arrows-rotate text-indigo-400"></i> Синхронизация базы
+        </h3>
+        <button onclick="closeSyncModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-xs text-slate-400">
+        Пересканировать папку <code class="text-indigo-300 font-mono">/data/media/karaoke</code> на сервере и обновить каталог песен.
+      </p>
+      <form onsubmit="runSync(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Пароль администратора</label>
+          <input type="password" id="syncPassword" required placeholder="Введите пароль..." class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <button type="submit" id="syncSubmitBtn" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-rotate"></i> Начать сканирование
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let searchTimeout = null;
+    let currentLetter = '';
+
+    function onSearchInput() {
+      const val = document.getElementById('searchInput').value;
+      document.getElementById('clearSearchBtn').classList.toggle('hidden', !val);
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        loadSongs(val, currentLetter);
+      }, 200);
+    }
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('clearSearchBtn').classList.add('hidden');
+      loadSongs('', currentLetter);
+    }
+
+    function filterLetter(letter) {
+      currentLetter = letter;
+      document.querySelectorAll('.letter-btn').forEach(btn => {
+        if ((letter === '' && btn.textContent.trim() === 'Все') || btn.textContent.trim() === letter) {
+          btn.className = 'letter-btn active px-3 py-1.5 rounded-lg border border-indigo-500 bg-indigo-600 text-white font-bold text-xs shadow';
+        } else {
+          btn.className = 'letter-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white text-xs';
+        }
+      });
+      loadSongs(document.getElementById('searchInput').value, currentLetter);
+    }
+
+    async function loadSongs(query = '', letter = '') {
+      const statusEl = document.getElementById('searchStatus');
+      statusEl.textContent = 'Поиск...';
+      try {
+        let url = `/api/songs?q=${encodeURIComponent(query)}&letter=${encodeURIComponent(letter)}`;
+        const res = await fetch(url);
+        const songs = await res.json();
+        const list = document.getElementById('songList');
+        list.innerHTML = '';
+        statusEl.textContent = `Найдено: ${songs.length} треков`;
+
+        if (songs.length === 0) {
+          list.innerHTML = `
+            <div class="text-center py-12 glass rounded-2xl p-6 border border-slate-800">
+              <i class="fa-solid fa-music text-slate-600 text-4xl mb-3"></i>
+              <div class="text-slate-300 font-semibold text-sm">Ничего не найдено</div>
+              <p class="text-xs text-slate-500 mt-1">Попробуйте ввести другое название или исполнителя</p>
+            </div>
+          `;
+          return;
+        }
+
+        songs.forEach(song => {
+          const ext = (song.filename || '').split('.').pop().toUpperCase();
+          const item = document.createElement('div');
+          item.className = 'glass rounded-xl p-3.5 flex items-center justify-between hover:border-slate-700 transition border border-slate-800/80';
+          item.innerHTML = `
+            <div class="min-w-0 pr-3">
+              <div class="text-sm font-bold text-white truncate">${escapeHtml(song.title)}</div>
+              <div class="text-xs text-indigo-400 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                <i class="fa-solid fa-user text-[10px] text-slate-500"></i> ${escapeHtml(song.artist)}
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 flex-shrink-0">
+              <span class="text-[10px] px-2 py-0.5 rounded font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700">${ext}</span>
+              <button onclick="copySong('${escapeQuote(song.artist)}', '${escapeQuote(song.title)}', this)" title="Скопировать название" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition">
+                <i class="fa-regular fa-copy"></i>
+              </button>
+            </div>
+          `;
+          list.appendChild(item);
+        });
+      } catch (e) {
+        statusEl.textContent = 'Ошибка загрузки данных';
+      }
+    }
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const st = await res.json();
+        document.getElementById('statTotalSongs').textContent = st.total_songs;
+        document.getElementById('statTotalArtists').textContent = st.total_artists || 0;
+      } catch (e) {}
+    }
+
+    function copySong(artist, title, btn) {
+      const text = `${artist} — ${title}`;
+      navigator.clipboard.writeText(text).then(() => {
+        const icon = btn.querySelector('i');
+        icon.className = 'fa-solid fa-check text-emerald-400';
+        setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 1500);
+      });
+    }
+
+    function openSyncModal() {
+      document.getElementById('syncPassword').value = '';
+      document.getElementById('syncModal').classList.remove('hidden');
+    }
+    function closeSyncModal() {
+      document.getElementById('syncModal').classList.add('hidden');
+    }
+
+    async function runSync(e) {
+      e.preventDefault();
+      const btn = document.getElementById('syncSubmitBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сканирование...';
+      const pwd = document.getElementById('syncPassword').value;
+
+      try {
+        const res = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd })
+        });
+        const d = await res.json();
+        if (res.ok) {
+          closeSyncModal();
+          alert(`Синхронизация завершена!\nНайдено файлов: ${d.found}\nДобавлено новых треков: ${d.added}`);
+          loadStats();
+          loadSongs(document.getElementById('searchInput').value, currentLetter);
+        } else {
+          alert('Ошибка: ' + (d.error || 'Неверный пароль'));
+        }
+      } catch (e) {
+        alert('Ошибка при выполнении синхронизации');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Начать сканирование';
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function escapeQuote(str) {
+      if (!str) return '';
+      return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    loadSongs();
+    loadStats();
+  </script>
+</body>
+</html>

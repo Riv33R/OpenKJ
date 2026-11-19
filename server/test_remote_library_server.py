@@ -1,16 +1,17 @@
-import gzip
-import json
+import os
 import tempfile
-import threading
 import unittest
-import urllib.error
-import urllib.request
 from pathlib import Path
 
-from remote_library_server import LibraryIndex, RemoteLibraryHandler, RemoteLibraryServer
+try:
+    import flask  # noqa: F401
+    HAS_FLASK = True
+except ImportError:
+    HAS_FLASK = False
 
 
-class TestRemoteLibraryServer(unittest.TestCase):
+@unittest.skipUnless(HAS_FLASK, "Flask not installed in local Python environment")
+class TestOpenKJServerApp(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
@@ -23,58 +24,55 @@ class TestRemoteLibraryServer(unittest.TestCase):
         (self.brk_dir / "Daft Punk - Instant Crush.mp3").write_bytes(b"FAKE_MP3_DATA_ABCDEF")
         (self.kar_dir / "ignored.txt").write_text("ignore me", encoding="utf-8")
 
-        self.token = "super-secret-token"
-        self.index = LibraryIndex(str(self.kar_dir), str(self.brk_dir))
-        self.index.scan()
-        self.server = RemoteLibraryServer(("127.0.0.1", 0), RemoteLibraryHandler, self.index, self.token)
-        self.port = self.server.server_address[1]
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
+        os.environ["DB_PATH"] = str(root / "karaoke.db")
+        os.environ["OPENKJ_KARAOKE_DIR"] = str(self.kar_dir)
+        os.environ["OPENKJ_BREAK_DIR"] = str(self.brk_dir)
+        os.environ["OPENKJ_API_TOKEN"] = "super-secret-token"
+        os.environ["DJ_PASSWORD"] = "super-secret-token"
+
+        import importlib
+        import app as server_app
+        importlib.reload(server_app)
+        self.server_app = server_app
+        self.client = server_app.app.test_client()
 
     def tearDown(self):
-        self.server.shutdown()
-        self.server.server_close()
         self.tmp.cleanup()
 
-    def _open(self, path, token=None, headers=None, method="GET"):
-        hdrs = dict(headers or {})
-        if token is not None:
-            hdrs["Authorization"] = f"Bearer {token}"
-        req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", headers=hdrs, method=method)
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        return opener.open(req)
-
     def test_auth_required(self):
-        with self.assertRaises(urllib.error.HTTPError) as ctx:
-            self._open("/api/v1/health", token="wrong")
-        self.assertEqual(ctx.exception.code, 401)
+        resp = self.client.get("/api/v1/health", headers={"Authorization": "Bearer wrong"})
+        self.assertEqual(resp.status_code, 401)
 
-    def test_catalog_and_download_range(self):
-        with self._open("/api/v1/catalog", token=self.token, headers={"Accept-Encoding": "gzip"}) as resp:
-            self.assertEqual(resp.status, 200)
-            raw = resp.read()
-            if resp.headers.get("Content-Encoding") == "gzip":
-                raw = gzip.decompress(raw)
-            data = json.loads(raw.decode("utf-8"))
+    def test_web_catalog_and_v1_download_range(self):
+        web_resp = self.client.get("/")
+        self.assertEqual(web_resp.status_code, 200)
 
-        tracks = data["tracks"]
+        songs_resp = self.client.get("/api/songs?q=Kino")
+        self.assertEqual(songs_resp.status_code, 200)
+        self.assertEqual(len(songs_resp.get_json()), 1)
+
+        cat_resp = self.client.get("/api/v1/catalog", headers={"Authorization": "Bearer super-secret-token"})
+        self.assertEqual(cat_resp.status_code, 200)
+        tracks = cat_resp.get_json()["tracks"]
         self.assertEqual(len(tracks), 2)
         kar = next(t for t in tracks if t["type"] == "karaoke")
         self.assertEqual(kar["artist"], "Kino")
         self.assertEqual(kar["title"], "Gruppa Krovi")
         self.assertEqual(kar["songid"], "RUS001")
 
-        # Range download
-        with self._open(f"/api/v1/download/{kar['id']}", token=self.token, headers={"Range": "bytes=5-12"}) as dresp:
-            self.assertEqual(dresp.status, 206)
-            self.assertEqual(dresp.read(), b"MP4_DATA")
+        dl_resp = self.client.get(
+            f"/api/v1/download/{kar['id']}",
+            headers={"Authorization": "Bearer super-secret-token", "Range": "bytes=5-12"},
+        )
+        self.assertEqual(dl_resp.status_code, 206)
+        self.assertEqual(dl_resp.data, b"MP4_DATA")
+        dl_resp.close()
 
     def test_rescan(self):
         (self.kar_dir / "Artist - New Song.mkv").write_bytes(b"MKV")
-        with self._open("/api/v1/rescan", token=self.token, method="POST") as resp:
-            self.assertEqual(resp.status, 200)
-            data = json.loads(resp.read().decode("utf-8"))
-            self.assertEqual(data["tracks"], 3)
+        r = self.client.post("/api/v1/rescan", headers={"Authorization": "Bearer super-secret-token"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()["tracks"], 3)
 
 
 if __name__ == "__main__":
